@@ -1,0 +1,12 @@
+$ set NODE_ENV=development && pnpm run build && pnpm run start
+$ node ./build.mjs
+
+  dist\index.mjs                   3.5mb
+  dist\pino-worker.mjs           153.4kb
+  dist\pino-file.mjs             142.1kb
+  dist\pino-pretty.mjs           114.6kb
+  dist\thread-stream-worker.mjs    7.3kb
+  ...and 5 more output files...
+
+Done in 794ms
+$ node --enable-source-maps --env-file=../../.env ./dist/index.mjs

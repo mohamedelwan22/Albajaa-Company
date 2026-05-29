@@ -1,0 +1,1272 @@
+أنت تبني منصة "البجع للسفر والسياحة" على Replit من الصفر.
+
+المنصة بتخلي الموظف يرفع تذكرة طيران PDF أصلية،
+يشوف بياناتها، يعدل عليها يدوياً، ثم يولد PDF جديد
+بتصميم احترافي بهوية شركة البجع.
+
+⚠️ لا نستخدم Claude AI أو أي AI لاستخراج البيانات —
+الموظف يدخل البيانات يدوياً أو نقرأ نص الـ PDF ونعرضه
+عشان يسهل عليه النسخ.
+
+═══════════════════════════════════════════
+🎯 المطلوب — كل شيء في خطوة واحدة
+═══════════════════════════════════════════
+
+── Tech Stack ──────────────────────────────
+- Next.js 14 + TypeScript + Tailwind CSS
+- PostgreSQL (Replit DB أو Supabase)
+- Prisma ORM
+- JWT Authentication + bcrypt
+- Puppeteer (توليد PDF)
+- Supabase Storage (رفع الملفات)
+- pdf-parse (قراءة نص PDF الأصلي وعرضه)
+
+── الألوان ──────────────────────────────────
+- Primary:   #F7931E  (برتقالي)
+- Secondary: #00AEEF  (أزرق مائي)
+- Dark:      #1A1A1A  (أسود فحمي)
+- Background:#1A1A1A  (داكن)
+
+═══════════════════════════════════════════
+📦 الخطوة ١ — package.json
+═══════════════════════════════════════════
+
+{
+  "name": "albaja-tickets",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@prisma/client": "^5.15.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "@supabase/supabase-js": "^2.43.0",
+    "uuid": "^9.0.1",
+    "zod": "^3.23.8",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0",
+    "lucide-react": "^0.390.0",
+    "puppeteer": "^22.0.0",
+    "handlebars": "^4.7.8",
+    "pdf-parse": "^1.1.1",
+    "nodemailer": "^6.9.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/uuid": "^9.0.8",
+    "@types/nodemailer": "^6.4.15",
+    "prisma": "^5.15.0",
+    "tsx": "^4.15.0",
+    "tailwindcss": "^3.4.4",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5"
+  }
+}
+
+═══════════════════════════════════════════
+📄 الخطوة ٢ — prisma/schema.prisma
+═══════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id             String   @id @default(uuid())
+  name           String
+  logoUrl        String?
+  primaryColor   String   @default("#F7931E")
+  secondaryColor String   @default("#00AEEF")
+  email          String?
+  phone          String?
+  website        String?
+  address        String?
+  travelNotes    String?  @db.Text
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User[]
+  tickets        Ticket[]
+  @@map("companies")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(AGENT)
+  companyId    String?
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  company      Company?  @relation(fields: [companyId], references: [id])
+  tickets      Ticket[]
+  @@map("users")
+}
+
+model Ticket {
+  id               String       @id @default(uuid())
+  companyId        String
+  createdBy        String
+  originalFileUrl  String
+  rawText          String?      @db.Text
+  passengerName    String?
+  ticketNumber     String?
+  bookingReference String?
+  flightFrom       String?
+  flightTo         String?
+  departureDate    String?
+  departureTime    String?
+  arrivalDate      String?
+  arrivalTime      String?
+  airline          String?
+  flightNumber     String?
+  cabinClass       String?
+  baggageAllowance String?
+  gate             String?
+  price            String?
+  currency         String?
+  issueDate        String?
+  generatedFileUrl String?
+  hidePrice        Boolean      @default(false)
+  status           TicketStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  company          Company      @relation(fields: [companyId], references: [id])
+  user             User         @relation(fields: [createdBy], references: [id])
+  @@map("tickets")
+}
+
+enum UserRole    { SUPER_ADMIN ADMIN AGENT }
+enum TicketStatus { PENDING EDITING GENERATED SENT }
+
+═══════════════════════════════════════════
+📄 الخطوة ٣ — prisma/seed.ts
+═══════════════════════════════════════════
+
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+const prisma = new PrismaClient();
+async function main() {
+  const company = await prisma.company.upsert({
+    where: { id: 'albaja-main-id' },
+    update: {},
+    create: {
+      id: 'albaja-main-id',
+      name: 'شركة البجع للسفر والسياحة',
+      email: 'info@albaja.com.iq',
+      phone: '07708809825',
+      website: 'https://www.albaja.com.iq',
+      address: 'بغداد – المنصور – شارع الأميرات – مبنى أعمال',
+      primaryColor: '#F7931E',
+      secondaryColor: '#00AEEF',
+      travelNotes: 'الحضور إلى المطار قبل موعد الرحلة بثلاث ساعات.\nأن تكون صلاحية جواز السفر أكثر من 6 أشهر.\nالتأكد من صلاحية التأشيرة.\nالالتزام بوزن الأمتعة المسموح به.\nالتأكد من متطلبات الدولة المسافر إليها.',
+    },
+  });
+  const hash = await bcrypt.hash('admin123', 12);
+  await prisma.user.upsert({
+    where: { email: 'admin@albaja.com.iq' },
+    update: {},
+    create: {
+      name: 'عيسى',
+      email: 'admin@albaja.com.iq',
+      passwordHash: hash,
+      role: 'SUPER_ADMIN',
+      companyId: company.id,
+    },
+  });
+  console.log('✅ Seed done');
+}
+main().catch(console.error).finally(() => prisma.$disconnect());
+
+═══════════════════════════════════════════
+📄 الخطوة ٤ — .env
+═══════════════════════════════════════════
+
+DATABASE_URL="postgresql://..."
+JWT_SECRET="albaja-secret-2024"
+JWT_EXPIRES_IN="7d"
+SUPABASE_URL="https://mmwiomhbmqxxmdihivwh.supabase.co"
+SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_BUCKET="tickets"
+NEXT_PUBLIC_APP_URL="https://your-replit-url.repl.co"
+
+═══════════════════════════════════════════
+📄 الخطوة ٥ — كل ملفات src/lib/
+═══════════════════════════════════════════
+
+── src/lib/prisma.ts ────────────────────────
+import { PrismaClient } from '@prisma/client';
+const g = global as any;
+export const prisma = g.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') g.prisma = prisma;
+
+── src/lib/auth.ts ──────────────────────────
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { NextRequest } from 'next/server';
+const SECRET = process.env.JWT_SECRET!;
+export const hashPassword = (p: string) => bcrypt.hash(p, 12);
+export const verifyPassword = (p: string, h: string) => bcrypt.compare(p, h);
+export function generateToken(payload: { userId: string; email: string; role: string }) {
+  return jwt.sign(payload, SECRET, { expiresIn: '7d' });
+}
+export function verifyToken(token: string): any {
+  try { return jwt.verify(token, SECRET); } catch { return null; }
+}
+export function getToken(req: NextRequest): string | null {
+  const auth = req.headers.get('authorization');
+  if (auth?.startsWith('Bearer ')) return auth.slice(7);
+  return req.cookies.get('token')?.value ?? null;
+}
+export async function getCurrentUser(req: NextRequest) {
+  const token = getToken(req);
+  if (!token) return null;
+  const p = verifyToken(token);
+  if (!p) return null;
+  return prisma.user.findUnique({ where: { id: p.userId }, include: { company: true } });
+}
+
+── src/lib/supabase.ts ──────────────────────
+import { createClient } from '@supabase/supabase-js';
+export const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+export async function uploadFile(bucket: string, path: string, buffer: Buffer, type: string) {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, buffer, { contentType: type, upsert: true });
+  if (error) throw new Error(error.message);
+  return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+}
+
+── src/lib/pdf-reader.ts ────────────────────
+import pdf from 'pdf-parse';
+export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  try {
+    const data = await pdf(buffer);
+    return data.text || '';
+  } catch {
+    return '';
+  }
+}
+
+── src/lib/pdf-generator.ts ─────────────────
+import puppeteer from 'puppeteer';
+
+export interface TicketData {
+  passengerName?: string;
+  ticketNumber?: string;
+  bookingReference?: string;
+  flightFrom?: string;
+  flightTo?: string;
+  departureDate?: string;
+  departureTime?: string;
+  arrivalDate?: string;
+  arrivalTime?: string;
+  airline?: string;
+  flightNumber?: string;
+  cabinClass?: string;
+  baggageAllowance?: string;
+  gate?: string;
+  price?: string;
+  currency?: string;
+  issueDate?: string;
+}
+
+export interface CompanyData {
+  name: string;
+  logoUrl?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  travelNotes?: string;
+}
+
+export async function generateTicketPDF(
+  ticket: TicketData,
+  company: CompanyData,
+  hidePrice = false
+): Promise<Buffer> {
+  const notes = company.travelNotes
+    ? company.travelNotes.split('\n').filter(Boolean)
+    : [];
+
+  const barcodeH = [32,18,45,28,52,15,38,22,48,12,35,42,20,55,25,40,18,50,30,44,16,36,24,47,21,39,28,53,14,37];
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Cairo',Arial,sans-serif;
+    background:#f5f5f5;
+    direction:rtl;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  .wrap { width:794px; min-height:1123px; margin:0 auto; background:#fff; display:flex; flex-direction:column; }
+
+  /* HEADER */
+  .hdr {
+    background:linear-gradient(135deg,${company.primaryColor},${company.secondaryColor});
+    padding:32px 40px; display:flex; justify-content:space-between; align-items:center;
+    position:relative; overflow:hidden;
+  }
+  .hdr::before { content:''; position:absolute; top:-40px; left:-40px; width:180px; height:180px; background:rgba(255,255,255,.08); border-radius:50%; }
+  .co-name { font-size:26px; font-weight:900; color:#fff; margin-bottom:4px; }
+  .co-sub  { font-size:13px; color:rgba(255,255,255,.85); }
+  .co-logo {
+    width:90px; height:90px; background:rgba(255,255,255,.15);
+    border-radius:16px; display:flex; align-items:center; justify-content:center;
+    border:2px solid rgba(255,255,255,.3); font-size:28px; font-weight:900; color:#fff;
+  }
+  .co-logo img { width:70px; height:70px; object-fit:contain; }
+
+  /* BADGE */
+  .badge {
+    background:${company.primaryColor}; color:#fff; text-align:center;
+    padding:12px; font-size:13px; font-weight:700; letter-spacing:3px;
+  }
+
+  /* BODY */
+  .body { padding:32px 40px; flex:1; }
+
+  /* PASSENGER */
+  .pax {
+    background:linear-gradient(135deg,#fafafa,#f0f0f0);
+    border-radius:16px; padding:20px 24px; margin-bottom:24px;
+    border-right:5px solid ${company.primaryColor};
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .pax-name { font-size:22px; font-weight:900; }
+  .pax-lbl  { font-size:11px; color:#888; margin-bottom:4px; letter-spacing:1px; text-transform:uppercase; }
+  .refs { display:flex; gap:10px; }
+  .ref-box {
+    background:#fff; border:1.5px solid #e0e0e0; border-radius:10px;
+    padding:8px 14px; text-align:center;
+  }
+  .ref-val { font-size:14px; font-weight:700; color:${company.primaryColor}; }
+  .ref-lbl { font-size:10px; color:#999; margin-top:2px; }
+
+  /* ROUTE */
+  .route {
+    background:linear-gradient(135deg,${company.primaryColor}20,${company.secondaryColor}20);
+    border-radius:20px; padding:28px 32px; margin-bottom:24px;
+    border:1.5px solid ${company.primaryColor}40;
+  }
+  .route-row { display:flex; align-items:center; justify-content:space-between; }
+  .iata { font-size:44px; font-weight:900; line-height:1; }
+  .iata-lbl { font-size:13px; color:#666; margin-top:4px; }
+  .arrow { flex:1; display:flex; flex-direction:column; align-items:center; padding:0 20px; }
+  .line {
+    width:100%; height:2px;
+    background:linear-gradient(to left,${company.primaryColor},${company.secondaryColor});
+    position:relative; margin:8px 0;
+  }
+  .line::after {
+    content:'✈'; position:absolute; top:-12px; left:50%;
+    transform:translateX(-50%) scaleX(-1); font-size:20px; color:${company.primaryColor};
+  }
+  .al-badge {
+    background:#fff; border-radius:8px; padding:4px 12px;
+    font-size:12px; font-weight:700; color:${company.primaryColor};
+    border:1.5px solid ${company.primaryColor}40; margin-top:6px;
+  }
+  .times { display:flex; justify-content:space-between; margin-top:16px; padding-top:16px; border-top:1.5px dashed ${company.primaryColor}40; }
+  .time-blk { text-align:center; }
+  .time-val { font-size:28px; font-weight:900; }
+  .time-dt  { font-size:12px; color:#666; margin-top:4px; }
+
+  /* GRID */
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }
+  .card { background:#fafafa; border-radius:12px; padding:14px 16px; border:1.5px solid #ececec; }
+  .card .lbl { font-size:10px; color:#999; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .card .val { font-size:15px; font-weight:700; }
+
+  /* PRICE */
+  .price-sec {
+    background:linear-gradient(135deg,${company.primaryColor},${company.secondaryColor});
+    border-radius:14px; padding:16px 24px; display:flex;
+    justify-content:space-between; align-items:center; margin-bottom:24px; color:#fff;
+  }
+  .price-lbl { font-size:14px; opacity:.9; }
+  .price-amt { font-size:32px; font-weight:900; }
+
+  /* BARCODE */
+  .barcode { display:flex; align-items:center; gap:20px; background:#fafafa; border-radius:14px; padding:16px 24px; margin-bottom:24px; border:1.5px dashed #ddd; }
+  .bars { display:flex; gap:2px; align-items:flex-end; }
+  .bars span { display:inline-block; background:#1A1A1A; width:3px; border-radius:1px; }
+  .tkt-num { font-size:13px; color:#888; letter-spacing:2px; font-weight:600; }
+
+  /* NOTES */
+  .notes { background:#fff8f0; border-radius:14px; padding:20px 24px; margin-bottom:24px; border:1.5px solid ${company.primaryColor}40; }
+  .notes-ttl { font-size:14px; font-weight:700; color:${company.primaryColor}; margin-bottom:12px; }
+  .notes-ttl::before { content:'⚠️ '; }
+  .notes-list { list-style:none; }
+  .notes-list li { font-size:12px; color:#555; padding:5px 0 5px 18px; position:relative; line-height:1.6; padding-right:18px; }
+  .notes-list li::before { content:'•'; position:absolute; right:4px; color:${company.primaryColor}; font-weight:bold; }
+
+  /* FOOTER */
+  .ftr { background:#1A1A1A; padding:20px 40px; display:flex; justify-content:space-between; align-items:center; margin-top:auto; }
+  .ftr-brand { color:#fff; font-size:13px; font-weight:700; }
+  .ftr-badge { background:${company.primaryColor}; color:#fff; padding:6px 14px; border-radius:8px; font-size:11px; font-weight:700; }
+  .ftr-contact { color:#888; font-size:11px; text-align:left; }
+  .ftr-contact span { display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div>
+      <div class="co-name">${company.name}</div>
+      <div class="co-sub">تذكرة سفر إلكترونية — Electronic Ticket</div>
+    </div>
+    <div class="co-logo">
+      ${company.logoUrl ? `<img src="${company.logoUrl}" alt="logo"/>` : '✈'}
+    </div>
+  </div>
+
+  <div class="badge">تذكرة طيران إلكترونية ● ELECTRONIC AIRLINE TICKET</div>
+
+  <div class="body">
+    <div class="pax">
+      <div>
+        <div class="pax-lbl">اسم المسافر / Passenger Name</div>
+        <div class="pax-name">${ticket.passengerName || '—'}</div>
+      </div>
+      <div class="refs">
+        ${ticket.bookingReference ? `<div class="ref-box"><div class="ref-val">${ticket.bookingReference}</div><div class="ref-lbl">رقم الحجز / PNR</div></div>` : ''}
+        ${ticket.ticketNumber ? `<div class="ref-box"><div class="ref-val">${ticket.ticketNumber}</div><div class="ref-lbl">رقم التذكرة</div></div>` : ''}
+      </div>
+    </div>
+
+    <div class="route">
+      <div class="route-row">
+        <div>
+          <div class="iata">${ticket.flightFrom || '—'}</div>
+          <div class="iata-lbl">المغادرة / Departure</div>
+        </div>
+        <div class="arrow">
+          <div class="line"></div>
+          <div class="al-badge">${ticket.airline || ''} ${ticket.flightNumber || ''}</div>
+        </div>
+        <div style="text-align:left">
+          <div class="iata">${ticket.flightTo || '—'}</div>
+          <div class="iata-lbl">الوصول / Arrival</div>
+        </div>
+      </div>
+      <div class="times">
+        <div class="time-blk">
+          <div class="time-val">${ticket.departureTime || '—'}</div>
+          <div class="time-dt">${ticket.departureDate || ''}</div>
+        </div>
+        <div class="time-blk"><div style="font-size:12px;color:#888">مدة الرحلة</div></div>
+        <div class="time-blk">
+          <div class="time-val">${ticket.arrivalTime || '—'}</div>
+          <div class="time-dt">${ticket.arrivalDate || ''}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="lbl">درجة السفر</div><div class="val">${ticket.cabinClass || '—'}</div></div>
+      <div class="card"><div class="lbl">الأمتعة المسموح</div><div class="val">${ticket.baggageAllowance || '—'}</div></div>
+      <div class="card"><div class="lbl">بوابة الصعود</div><div class="val">${ticket.gate || '—'}</div></div>
+      <div class="card"><div class="lbl">تاريخ الإصدار</div><div class="val">${ticket.issueDate || '—'}</div></div>
+      <div class="card"><div class="lbl">رقم الرحلة</div><div class="val">${ticket.flightNumber || '—'}</div></div>
+      <div class="card"><div class="lbl">شركة الطيران</div><div class="val">${ticket.airline || '—'}</div></div>
+    </div>
+
+    ${!hidePrice && ticket.price ? `
+    <div class="price-sec">
+      <div class="price-lbl">إجمالي السعر / Total Fare</div>
+      <div><span style="font-size:16px;opacity:.85;margin-left:6px">${ticket.currency || ''}</span><span class="price-amt">${ticket.price}</span></div>
+    </div>` : ''}
+
+    <div class="barcode">
+      <div class="bars">
+        ${barcodeH.map(h => `<span style="height:${h}px"></span>`).join('')}
+      </div>
+      <div class="tkt-num">${ticket.ticketNumber || ''}</div>
+    </div>
+
+    ${notes.length ? `
+    <div class="notes">
+      <div class="notes-ttl">تعليمات السفر الهامة</div>
+      <ul class="notes-list">
+        ${notes.map(n => `<li>${n}</li>`).join('')}
+      </ul>
+    </div>` : ''}
+  </div>
+
+  <div class="ftr">
+    <div class="ftr-brand">${company.name}</div>
+    <div class="ftr-badge">صادرة إلكترونياً</div>
+    <div class="ftr-contact">
+      ${company.phone ? `<span>📞 ${company.phone}</span>` : ''}
+      ${company.email ? `<span>✉️ ${company.email}</span>` : ''}
+      ${company.website ? `<span>🌐 ${company.website}</span>` : ''}
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'load' });
+    const pdfBuf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0', right: '0', bottom: '0', left: '0' } });
+    return Buffer.from(pdfBuf);
+  } finally {
+    await browser.close();
+  }
+}
+
+═══════════════════════════════════════════
+📄 الخطوة ٦ — src/middleware.ts
+═══════════════════════════════════════════
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { verifyToken } from './lib/auth';
+
+const PUBLIC = ['/api/auth/', '/login', '/', '/_next', '/favicon.ico'];
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (PUBLIC.some(p => pathname.startsWith(p))) return NextResponse.next();
+  const token = request.cookies.get('token')?.value
+    ?? request.headers.get('authorization')?.replace('Bearer ', '');
+  if (!token) {
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  const payload = verifyToken(token);
+  if (!payload) {
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'جلسة منتهية' }, { status: 401 });
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  const headers = new Headers(request.headers);
+  headers.set('x-user-id', payload.userId);
+  headers.set('x-user-role', payload.role);
+  return NextResponse.next({ request: { headers } });
+}
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'] };
+
+═══════════════════════════════════════════
+📄 الخطوة ٧ — API Routes
+═══════════════════════════════════════════
+
+── src/app/api/auth/login/route.ts ──────────
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { verifyPassword, generateToken } from '@/lib/auth';
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email, password } = await req.json();
+    const user = await prisma.user.findUnique({ where: { email }, include: { company: true } });
+    if (!user || !(await verifyPassword(password, user.passwordHash)))
+      return NextResponse.json({ error: 'بيانات غير صحيحة' }, { status: 401 });
+    await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role });
+    const res = NextResponse.json({ success: true, user: { id: user.id, name: user.name, email, role: user.role, company: user.company }, token });
+    res.cookies.set('token', token, { httpOnly: true, sameSite: 'lax', maxAge: 604800, path: '/' });
+    return res;
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+── src/app/api/auth/logout/route.ts ─────────
+import { NextResponse } from 'next/server';
+export async function POST() {
+  const res = NextResponse.json({ success: true });
+  res.cookies.set('token', '', { httpOnly: true, maxAge: 0, path: '/' });
+  return res;
+}
+
+── src/app/api/tickets/route.ts ─────────────
+(قائمة التذاكر GET + إنشاء POST)
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
+export async function GET(req: NextRequest) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+  const tickets = await prisma.ticket.findMany({
+    where: { companyId: user.companyId! },
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { name: true } } },
+  });
+  return NextResponse.json({ tickets });
+}
+
+── src/app/api/tickets/upload/route.ts ──────
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuid } from 'uuid';
+import { getCurrentUser } from '@/lib/auth';
+import { uploadFile } from '@/lib/supabase';
+import { extractTextFromPDF } from '@/lib/pdf-reader';
+import { prisma } from '@/lib/prisma';
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    if (!file || file.type !== 'application/pdf')
+      return NextResponse.json({ error: 'يجب رفع ملف PDF' }, { status: 400 });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const rawText = await extractTextFromPDF(buffer);
+    const fileUrl = await uploadFile(
+      process.env.SUPABASE_BUCKET || 'tickets',
+      `tickets/${user.companyId}/${uuid()}.pdf`,
+      buffer, 'application/pdf'
+    );
+    const ticket = await prisma.ticket.create({
+      data: { companyId: user.companyId!, createdBy: user.id, originalFileUrl: fileUrl, rawText, status: 'EDITING' },
+    });
+    return NextResponse.json({ success: true, ticket });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+── src/app/api/tickets/[id]/route.ts ────────
+(GET تفاصيل + PATCH تعديل البيانات)
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+  const ticket = await prisma.ticket.findUnique({ where: { id: params.id }, include: { company: true } });
+  if (!ticket || ticket.companyId !== user.companyId)
+    return NextResponse.json({ error: 'غير موجود' }, { status: 404 });
+  return NextResponse.json({ ticket });
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+  const body = await req.json();
+  const allowed = ['passengerName','ticketNumber','bookingReference','flightFrom','flightTo',
+    'departureDate','departureTime','arrivalDate','arrivalTime','airline','flightNumber',
+    'cabinClass','baggageAllowance','gate','price','currency','issueDate','hidePrice'];
+  const data: any = {};
+  for (const k of allowed) if (k in body) data[k] = body[k];
+  const ticket = await prisma.ticket.update({ where: { id: params.id }, data });
+  return NextResponse.json({ success: true, ticket });
+}
+
+── src/app/api/tickets/[id]/generate/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { generateTicketPDF } from '@/lib/pdf-generator';
+import { uploadFile } from '@/lib/supabase';
+import { v4 as uuid } from 'uuid';
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const ticket = await prisma.ticket.findUnique({ where: { id: params.id }, include: { company: true } });
+    if (!ticket) return NextResponse.json({ error: 'غير موجود' }, { status: 404 });
+
+    const pdfBuf = await generateTicketPDF(
+      {
+        passengerName: ticket.passengerName ?? undefined,
+        ticketNumber: ticket.ticketNumber ?? undefined,
+        bookingReference: ticket.bookingReference ?? undefined,
+        flightFrom: ticket.flightFrom ?? undefined,
+        flightTo: ticket.flightTo ?? undefined,
+        departureDate: ticket.departureDate ?? undefined,
+        departureTime: ticket.departureTime ?? undefined,
+        arrivalDate: ticket.arrivalDate ?? undefined,
+        arrivalTime: ticket.arrivalTime ?? undefined,
+        airline: ticket.airline ?? undefined,
+        flightNumber: ticket.flightNumber ?? undefined,
+        cabinClass: ticket.cabinClass ?? undefined,
+        baggageAllowance: ticket.baggageAllowance ?? undefined,
+        gate: ticket.gate ?? undefined,
+        price: ticket.price ?? undefined,
+        currency: ticket.currency ?? undefined,
+        issueDate: ticket.issueDate ?? undefined,
+      },
+      {
+        name: ticket.company.name,
+        logoUrl: ticket.company.logoUrl ?? undefined,
+        primaryColor: ticket.company.primaryColor,
+        secondaryColor: ticket.company.secondaryColor,
+        phone: ticket.company.phone ?? undefined,
+        email: ticket.company.email ?? undefined,
+        website: ticket.company.website ?? undefined,
+        address: ticket.company.address ?? undefined,
+        travelNotes: ticket.company.travelNotes ?? undefined,
+      },
+      ticket.hidePrice
+    );
+
+    const url = await uploadFile(
+      process.env.SUPABASE_BUCKET || 'tickets',
+      `generated/${user.companyId}/${uuid()}.pdf`,
+      pdfBuf, 'application/pdf'
+    );
+    const updated = await prisma.ticket.update({
+      where: { id: params.id },
+      data: { generatedFileUrl: url, status: 'GENERATED' },
+    });
+    return NextResponse.json({ success: true, ticket: updated });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+═══════════════════════════════════════════
+📄 الخطوة ٨ — صفحات الـ UI
+═══════════════════════════════════════════
+
+── src/app/globals.css ──────────────────────
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+    --primary: 32 93% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 195 100% 47%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 55%;
+    --border: 0 0% 22%;
+    --radius: 0.75rem;
+  }
+  * { @apply border-border; }
+  body { @apply bg-[#1A1A1A] text-white; direction:rtl; font-family:'Segoe UI',system-ui,sans-serif; }
+}
+
+── src/app/layout.tsx ───────────────────────
+import type { Metadata } from 'next';
+import './globals.css';
+export const metadata: Metadata = { title: 'منصة البجع — إدارة تذاكر السفر' };
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ar" dir="rtl">
+      <body className="min-h-screen bg-[#1A1A1A] text-white antialiased">{children}</body>
+    </html>
+  );
+}
+
+── src/app/page.tsx ─────────────────────────
+'use client';
+import Link from 'next/link';
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-[#1A1A1A] flex flex-col items-center justify-center px-4">
+      <div className="text-center max-w-2xl">
+        <div className="w-24 h-24 mx-auto mb-8 bg-[#F7931E] rounded-full flex items-center justify-center text-4xl">✈</div>
+        <h1 className="text-5xl font-black text-white mb-3">منصة <span className="text-[#F7931E]">البجع</span></h1>
+        <p className="text-[#00AEEF] text-xl mb-8">للسفر والسياحة</p>
+        <Link href="/login" className="px-10 py-4 bg-[#F7931E] text-white rounded-2xl font-bold text-lg hover:bg-[#e8850a] transition-all">
+          تسجيل الدخول
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+── src/app/login/page.tsx ───────────────────
+'use client';
+import { useState } from 'react';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = '/dashboard';
+      } else {
+        setError(data.error || 'خطأ في تسجيل الدخول');
+      }
+    } catch {
+      setError('خطأ في الاتصال');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#1A1A1A] flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 mx-auto mb-4 bg-[#F7931E] rounded-full flex items-center justify-center text-2xl">✈</div>
+          <h1 className="text-2xl font-black text-white">تسجيل الدخول</h1>
+          <p className="text-gray-400 mt-1">منصة البجع للسفر والسياحة</p>
+        </div>
+        {error && <div className="mb-4 p-3 bg-red-500/20 text-red-300 rounded-xl text-sm">{error}</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">البريد الإلكتروني</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#F7931E]"
+              placeholder="admin@albaja.com.iq"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">كلمة المرور</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#F7931E]"
+              placeholder="••••••"
+            />
+          </div>
+          <button type="submit" disabled={loading}
+            className="w-full py-3 bg-[#F7931E] text-white rounded-xl font-bold text-lg hover:bg-[#e8850a] transition-all disabled:opacity-50">
+            {loading ? 'جاري الدخول...' : 'دخول'}
+          </button>
+        </form>
+      </div>
+    </main>
+  );
+}
+
+── src/app/dashboard/page.tsx ───────────────
+'use client';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+export default function Dashboard() {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/tickets')
+      .then(r => r.json())
+      .then(d => { setTickets(d.tickets || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const statusColor: any = {
+    PENDING: 'bg-yellow-500',
+    EDITING: 'bg-blue-500',
+    GENERATED: 'bg-green-500',
+    SENT: 'bg-purple-500',
+  };
+  const statusLabel: any = {
+    PENDING: 'معلق', EDITING: 'قيد التعديل', GENERATED: 'مولّد', SENT: 'مُرسل',
+  };
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  return (
+    <div className="min-h-screen bg-[#1A1A1A]">
+      {/* Header */}
+      <header className="bg-white/5 border-b border-white/10 px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#F7931E] rounded-xl flex items-center justify-center text-lg">✈</div>
+          <div>
+            <h1 className="text-white font-bold">منصة البجع</h1>
+            <p className="text-gray-400 text-xs">للسفر والسياحة</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/tickets/new"
+            className="px-5 py-2 bg-[#F7931E] text-white rounded-xl font-bold text-sm hover:bg-[#e8850a] transition-all">
+            + تذكرة جديدة
+          </Link>
+          <button onClick={logout} className="px-4 py-2 border border-white/20 text-gray-400 rounded-xl text-sm hover:border-red-500 hover:text-red-400 transition-all">
+            خروج
+          </button>
+        </div>
+      </header>
+
+      {/* Stats */}
+      <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'إجمالي التذاكر', val: tickets.length, color: '#F7931E' },
+          { label: 'قيد التعديل', val: tickets.filter(t => t.status === 'EDITING').length, color: '#00AEEF' },
+          { label: 'مولّدة', val: tickets.filter(t => t.status === 'GENERATED').length, color: '#22c55e' },
+          { label: 'مُرسلة', val: tickets.filter(t => t.status === 'SENT').length, color: '#a855f7' },
+        ].map(s => (
+          <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-5">
+            <div className="text-3xl font-black mb-1" style={{ color: s.color }}>{s.val}</div>
+            <div className="text-gray-400 text-sm">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tickets Table */}
+      <div className="px-6 pb-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          <div className="p-5 border-b border-white/10 flex justify-between items-center">
+            <h2 className="text-white font-bold text-lg">التذاكر</h2>
+          </div>
+          {loading ? (
+            <div className="p-10 text-center text-gray-400">جاري التحميل...</div>
+          ) : tickets.length === 0 ? (
+            <div className="p-10 text-center">
+              <div className="text-5xl mb-4">🎫</div>
+              <p className="text-gray-400">لا توجد تذاكر بعد</p>
+              <Link href="/dashboard/tickets/new" className="mt-4 inline-block px-6 py-2 bg-[#F7931E] text-white rounded-xl font-bold text-sm">
+                ارفع أول تذكرة
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    {['المسافر','الرحلة','التاريخ','الحالة','إجراءات'].map(h => (
+                      <th key={h} className="px-5 py-3 text-right text-xs text-gray-400 font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickets.map((t: any) => (
+                    <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-all">
+                      <td className="px-5 py-4 text-white font-medium">{t.passengerName || '—'}</td>
+                      <td className="px-5 py-4 text-gray-300">{t.flightFrom && t.flightTo ? `${t.flightFrom} ← ${t.flightTo}` : '—'}</td>
+                      <td className="px-5 py-4 text-gray-400 text-sm">{new Date(t.createdAt).toLocaleDateString('ar-IQ')}</td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-white text-xs font-bold ${statusColor[t.status]}`}>
+                          {statusLabel[t.status]}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <Link href={`/dashboard/tickets/${t.id}`}
+                          className="px-3 py-1 border border-[#F7931E] text-[#F7931E] rounded-lg text-xs font-bold hover:bg-[#F7931E] hover:text-white transition-all">
+                          تفاصيل
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+── src/app/dashboard/tickets/new/page.tsx ───
+'use client';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function NewTicket() {
+  const router = useRouter();
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const upload = useCallback(async (file: File) => {
+    if (file.type !== 'application/pdf') { setError('يجب أن يكون الملف PDF'); return; }
+    setLoading(true);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/tickets/upload', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.success) router.push(`/dashboard/tickets/${data.ticket.id}`);
+      else setError(data.error || 'فشل الرفع');
+    } catch { setError('خطأ في الاتصال'); }
+    setLoading(false);
+  }, [router]);
+
+  return (
+    <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center p-6">
+      <div className="w-full max-w-lg">
+        <h1 className="text-2xl font-black text-white mb-8 text-center">رفع تذكرة جديدة</h1>
+        {error && <div className="mb-4 p-3 bg-red-500/20 text-red-300 rounded-xl text-sm">{error}</div>}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); }}
+          onClick={() => document.getElementById('file-input')?.click()}
+          className={`border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all
+            ${dragging ? 'border-[#F7931E] bg-[#F7931E]/10' : 'border-white/20 hover:border-[#F7931E]/50'}`}
+        >
+          <div className="text-6xl mb-4">{loading ? '⏳' : '📄'}</div>
+          <p className="text-white font-bold mb-2">{loading ? 'جاري الرفع...' : 'اسحب ملف PDF هنا'}</p>
+          <p className="text-gray-400 text-sm">أو انقر لاختيار الملف</p>
+          <input id="file-input" type="file" accept=".pdf" className="hidden" onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0]); }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+── src/app/dashboard/tickets/[id]/page.tsx ──
+'use client';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+
+const FIELDS = [
+  { key: 'passengerName', label: 'اسم المسافر' },
+  { key: 'ticketNumber', label: 'رقم التذكرة' },
+  { key: 'bookingReference', label: 'رقم الحجز (PNR)' },
+  { key: 'airline', label: 'شركة الطيران' },
+  { key: 'flightNumber', label: 'رقم الرحلة' },
+  { key: 'flightFrom', label: 'مطار المغادرة' },
+  { key: 'flightTo', label: 'مطار الوصول' },
+  { key: 'departureDate', label: 'تاريخ المغادرة' },
+  { key: 'departureTime', label: 'وقت المغادرة' },
+  { key: 'arrivalDate', label: 'تاريخ الوصول' },
+  { key: 'arrivalTime', label: 'وقت الوصول' },
+  { key: 'cabinClass', label: 'درجة السفر' },
+  { key: 'baggageAllowance', label: 'الأمتعة المسموحة' },
+  { key: 'gate', label: 'بوابة الصعود' },
+  { key: 'price', label: 'السعر' },
+  { key: 'currency', label: 'العملة' },
+  { key: 'issueDate', label: 'تاريخ الإصدار' },
+];
+
+export default function TicketDetail() {
+  const { id } = useParams<{ id: string }>();
+  const [ticket, setTicket] = useState<any>(null);
+  const [form, setForm] = useState<any>({});
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [showRaw, setShowRaw] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/tickets/${id}`)
+      .then(r => r.json())
+      .then(d => { setTicket(d.ticket); setForm(d.ticket || {}); });
+  }, [id]);
+
+  async function saveChanges() {
+    setSaving(true); setMsg('');
+    const res = await fetch(`/api/tickets/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    });
+    const d = await res.json();
+    if (d.success) { setTicket(d.ticket); setMsg('✅ تم الحفظ'); }
+    else setMsg('❌ فشل الحفظ');
+    setSaving(false);
+  }
+
+  async function generate() {
+    setGenerating(true); setMsg('');
+    const res = await fetch(`/api/tickets/${id}/generate`, { method: 'POST' });
+    const d = await res.json();
+    if (d.success) { setTicket(d.ticket); setMsg('✅ تم توليد التذكرة'); }
+    else setMsg(`❌ ${d.error}`);
+    setGenerating(false);
+  }
+
+  if (!ticket) return <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center text-white">جاري التحميل...</div>;
+
+  return (
+    <div className="min-h-screen bg-[#1A1A1A] p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/dashboard" className="text-gray-400 hover:text-white transition-all">← الرئيسية</Link>
+          <h1 className="text-2xl font-black text-white">تفاصيل التذكرة</h1>
+        </div>
+
+        {msg && <div className="mb-4 p-3 bg-white/10 rounded-xl text-sm text-white">{msg}</div>}
+
+        {/* Raw Text Toggle */}
+        {ticket.rawText && (
+          <div className="mb-6">
+            <button onClick={() => setShowRaw(!showRaw)}
+              className="px-4 py-2 border border-[#00AEEF]/50 text-[#00AEEF] rounded-xl text-sm font-bold hover:bg-[#00AEEF]/10 transition-all">
+              {showRaw ? 'إخفاء' : 'عرض'} نص التذكرة الأصلي
+            </button>
+            {showRaw && (
+              <div className="mt-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-gray-300 text-xs font-mono whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto" dir="ltr">
+                  {ticket.rawText}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Form */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-white font-bold text-lg">بيانات التذكرة</h2>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-gray-400 text-sm">إخفاء السعر</span>
+              <input type="checkbox" checked={form.hidePrice || false}
+                onChange={e => setForm({ ...form, hidePrice: e.target.checked })}
+                className="w-4 h-4 accent-[#F7931E]"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {FIELDS.map(f => (
+              <div key={f.key}>
+                <label className="block text-sm text-gray-400 mb-1">{f.label}</label>
+                <input
+                  type="text"
+                  value={form[f.key] || ''}
+                  onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-[#F7931E] text-sm"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex gap-3">
+            <button onClick={saveChanges} disabled={saving}
+              className="px-6 py-2 bg-[#00AEEF] text-white rounded-xl font-bold text-sm hover:bg-[#0099d6] transition-all disabled:opacity-50">
+              {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+            </button>
+            <button onClick={generate} disabled={generating}
+              className="px-6 py-2 bg-[#F7931E] text-white rounded-xl font-bold text-sm hover:bg-[#e8850a] transition-all disabled:opacity-50">
+              {generating ? 'جاري التوليد...' : '🎫 توليد التذكرة PDF'}
+            </button>
+          </div>
+        </div>
+
+        {/* Generated PDF */}
+        {ticket.generatedFileUrl && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6">
+            <h3 className="text-green-400 font-bold mb-4">✅ التذكرة المولّدة جاهزة</h3>
+            <div className="flex gap-3">
+              <a href={ticket.generatedFileUrl} target="_blank" rel="noopener noreferrer"
+                className="px-6 py-2 bg-green-500 text-white rounded-xl font-bold text-sm hover:bg-green-600 transition-all">
+                📥 تحميل PDF
+              </a>
+              <a href={`https://wa.me/?text=${encodeURIComponent(ticket.generatedFileUrl)}`} target="_blank"
+                className="px-6 py-2 bg-[#25D366] text-white rounded-xl font-bold text-sm hover:bg-[#20bd5a] transition-all">
+                واتساب
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+═══════════════════════════════════════════
+📄 الخطوة ٩ — ملفات الإعداد
+═══════════════════════════════════════════
+
+── tailwind.config.ts ───────────────────────
+import type { Config } from 'tailwindcss';
+const config: Config = {
+  content: ['./src/**/*.{js,ts,jsx,tsx}'],
+  theme: { extend: {} },
+  plugins: [],
+};
+export default config;
+
+── postcss.config.mjs ───────────────────────
+export default { plugins: { tailwindcss: {}, autoprefixer: {} } };
+
+── next.config.mjs ──────────────────────────
+/** @type {import('next').NextConfig} */
+const nextConfig = {};
+export default nextConfig;
+
+── tsconfig.json ────────────────────────────
+{
+  "compilerOptions": {
+    "lib":["dom","dom.iterable","esnext"],
+    "allowJs":true,"skipLibCheck":true,"strict":true,"noEmit":true,
+    "esModuleInterop":true,"module":"esnext","moduleResolution":"bundler",
+    "resolveJsonModule":true,"isolatedModules":true,"jsx":"preserve","incremental":true,
+    "plugins":[{"name":"next"}],"paths":{"@/*":["./src/*"]}
+  },
+  "include":["next-env.d.ts","**/*.ts","**/*.tsx",".next/types/**/*.ts"],
+  "exclude":["node_modules"]
+}
+
+═══════════════════════════════════════════
+🚀 الخطوة ١٠ — أوامر التشغيل (بالترتيب)
+═══════════════════════════════════════════
+
+npm install
+npx prisma generate
+npx prisma migrate dev --name init
+npx tsx prisma/seed.ts
+npm run dev
+
+═══════════════════════════════════════════
+✅ معيار القبول
+═══════════════════════════════════════════
+
+١. localhost:3000 — صفحة البجع الداكنة تفتح
+٢. /login — تسجيل الدخول بـ admin@albaja.com.iq / admin123 ينقل لـ /dashboard
+٣. /dashboard — قائمة التذاكر تظهر
+٤. /dashboard/tickets/new — رفع PDF يشتغل
+٥. /dashboard/tickets/[id] — نص التذكرة الأصلي يظهر، تعديل الحقول وحفظها يشتغل
+٦. زر "توليد التذكرة PDF" يرجع رابط Supabase ويظهر أزرار التحميل والواتساب
+
+⚠️ قواعد:
+- TypeScript strict
+- RTL عربي أولاً
+- جميع رسائل الخطأ بالعربية
+- لا AI ولا Claude API — الموظف يدخل البيانات يدوياً
+- نص الـ PDF الأصلي يُعرض للموظف كمرجع فقط لتسهيل الإدخال اليدوي

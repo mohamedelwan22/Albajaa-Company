@@ -1,0 +1,23 @@
+◇ injected env (0) from ..\..\.env // tip: ⌁ auth for agents [www.vestauth.com]
+[15:46:16.341] [32mINFO[39m (13220): [36mServer listening[39m
+    [35mport[39m: 3001
+[15:53:09.679] [32mINFO[39m (13220): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "GET",
+      "url": "/api/auth/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 2052
+[15:53:09.880] [32mINFO[39m (13220): [36mrequest aborted[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "GET",
+      "url": "/api/tickets/060c6b51-7fb6-41aa-8938-e9683ddc17f8"
+    }
+    [35mres[39m: {
+      "statusCode": null
+    }
+    [35mresponseTime[39m: 1549
