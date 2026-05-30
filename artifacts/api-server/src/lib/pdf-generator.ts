@@ -61,8 +61,15 @@ function generateBarcodeData(ticketNumber: string) {
 interface TicketData {
   ticketId?: string | null;
   passengerName?: string | null;
+  passengerArabicName?: string | null;
+  nationality?: string | null;
+  passengerType?: string | null;
+  dateOfBirth?: string | null;
+  passportNumber?: string | null;
   ticketNumber?: string | null;
   bookingReference?: string | null;
+  seatNumber?: string | null;
+  ticketStatus?: string | null;
   flightFrom?: string | null;
   flightTo?: string | null;
   departureDate?: string | null;
@@ -109,6 +116,22 @@ const airportCities: Record<string, { ar: string; en: string }> = {
   NJF: { ar: "النجف", en: "Najaf" },
   EBL: { ar: "أربيل", en: "Erbil" },
 };
+
+function calculateDuration(departureTime?: string | null, arrivalTime?: string | null): string {
+  if (!departureTime || !arrivalTime || departureTime === "--:--" || arrivalTime === "--:--") return "—";
+  try {
+    const [depH, depM] = departureTime.split(":").map(Number);
+    const [arrH, arrM] = arrivalTime.split(":").map(Number);
+    if (isNaN(depH) || isNaN(depM) || isNaN(arrH) || isNaN(arrM)) return "—";
+    let diffMinutes = (arrH * 60 + arrM) - (depH * 60 + depM);
+    if (diffMinutes < 0) diffMinutes += 24 * 60;
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  } catch {
+    return "—";
+  }
+}
 
 function getCityInfo(code: string) {
   const upper = (code ?? "").toUpperCase();
@@ -224,6 +247,16 @@ export async function generateTicketPDF(
     console.log("[STEP] HTML rendered");
     
     Handlebars.registerHelper("eq", (a: any, b: any) => a === b);
+    Handlebars.registerHelper("noteIcon", (index: number) => {
+      const icons = [
+        `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><rect x="6" y="10" width="12" height="8" rx="1"/><line x1="6" y1="14" x2="18" y2="14"/></svg>`,
+        `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+        `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2" ry="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>`,
+        `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+      ];
+      return icons[index] || `<svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="#D4A23A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    });
     const template = Handlebars.compile(templateSource);
 
     const defaultNotes = [
@@ -253,8 +286,15 @@ export async function generateTicketPDF(
 
       // مسافر
       passengerName: ticket.passengerName ?? "—",
+      passengerArabicName: ticket.passengerArabicName ?? "—",
+      nationality: ticket.nationality ?? "—",
+      passengerType: ticket.passengerType ?? "—",
+      dateOfBirth: ticket.dateOfBirth ?? "—",
+      passportNumber: ticket.passportNumber ?? "—",
       ticketNumber: ticket.ticketNumber ?? "—",
       bookingRef: ticket.bookingReference ?? "—",
+      seatNumber: ticket.seatNumber ?? ticket.gate ?? "—",
+      ticketStatus: ticket.ticketStatus ?? "CONFIRMED",
 
       // رحلة
       fromCode,
@@ -269,6 +309,7 @@ export async function generateTicketPDF(
       arrivalDate: ticket.arrivalDate ?? ticket.departureDate ?? "—",
       airline: ticket.airline ?? "—",
       flightNumber: ticket.flightNumber ?? "—",
+      duration: calculateDuration(ticket.departureTime, ticket.arrivalTime),
 
       // info
       travelClass: ticket.cabinClass ?? "Economy",
@@ -338,7 +379,7 @@ export async function generateTicketPDF(
       pdf = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
+        margin: { top: "0", bottom: "0", left: "0", right: "0" },
       });
     } catch (error) {
       console.error("PDF GENERATION ERROR");

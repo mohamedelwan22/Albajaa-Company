@@ -26,6 +26,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 const ticketSchema = z.object({
   passengerName: z.string().nullable().optional(),
+  passengerArabicName: z.string().nullable().optional(),
+  nationality: z.string().nullable().optional(),
+  passengerType: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  passportNumber: z.string().nullable().optional(),
   ticketNumber: z.string().nullable().optional(),
   bookingReference: z.string().nullable().optional(),
   flightFrom: z.string().nullable().optional(),
@@ -39,6 +44,7 @@ const ticketSchema = z.object({
   cabinClass: z.string().nullable().optional(),
   baggageAllowance: z.string().nullable().optional(),
   gate: z.string().nullable().optional(),
+  seatNumber: z.string().nullable().optional(),
   price: z.string().nullable().optional(),
   currency: z.string().nullable().optional(),
   issueDate: z.string().nullable().optional(),
@@ -73,6 +79,11 @@ export default function TicketDetail() {
     resolver: zodResolver(ticketSchema),
     defaultValues: {
       passengerName: "",
+      passengerArabicName: "",
+      nationality: "",
+      passengerType: "",
+      dateOfBirth: "",
+      passportNumber: "",
       ticketNumber: "",
       bookingReference: "",
       flightFrom: "",
@@ -86,6 +97,7 @@ export default function TicketDetail() {
       cabinClass: "",
       baggageAllowance: "",
       gate: "",
+      seatNumber: "",
       price: "",
       currency: "USD",
       issueDate: "",
@@ -97,6 +109,11 @@ export default function TicketDetail() {
     if (ticket) {
       form.reset({
         passengerName: ticket.passengerName || "",
+        passengerArabicName: ticket.passengerArabicName || "",
+        nationality: ticket.nationality || "",
+        passengerType: ticket.passengerType || "",
+        dateOfBirth: ticket.dateOfBirth || "",
+        passportNumber: ticket.passportNumber || "",
         ticketNumber: ticket.ticketNumber || "",
         bookingReference: ticket.bookingReference || "",
         flightFrom: ticket.flightFrom || "",
@@ -110,6 +127,7 @@ export default function TicketDetail() {
         cabinClass: ticket.cabinClass || "",
         baggageAllowance: ticket.baggageAllowance || "",
         gate: ticket.gate || "",
+        seatNumber: ticket.seatNumber || "",
         price: ticket.price || "",
         currency: ticket.currency || "USD",
         issueDate: ticket.issueDate || "",
@@ -278,8 +296,38 @@ ${pdfUrl}
                       <div className="grid md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="passengerName" render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs font-semibold text-[#6B7280]">اسم المسافر</FormLabel>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">اسم المسافر (English)</FormLabel>
                             <FormControl><Input className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="passengerArabicName" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">اسم المسافر (عربي)</FormLabel>
+                            <FormControl><Input className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="nationality" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">الجنسية</FormLabel>
+                            <FormControl><Input className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="passengerType" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">نوع المسافر</FormLabel>
+                            <FormControl><Input placeholder="Adult / Child / Infant" className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">تاريخ الميلاد</FormLabel>
+                            <FormControl><Input type="date" className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="passportNumber" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">رقم الجواز</FormLabel>
+                            <FormControl><Input dir="ltr" className="text-left font-mono uppercase border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="bookingReference" render={({ field }) => (
@@ -289,8 +337,8 @@ ${pdfUrl}
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="ticketNumber" render={({ field }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel className="text-xs font-semibold text-[#6B7280]">رقم التذكرة الإلكترونية E-Ticket</FormLabel>
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">رقم التذكرة الإلكترونية</FormLabel>
                             <FormControl><Input dir="ltr" className="text-left font-mono border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
                           </FormItem>
                         )} />
@@ -371,6 +419,12 @@ ${pdfUrl}
                         <FormField control={form.control} name="gate" render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-[#6B7280]">بوابة الصعود</FormLabel>
+                            <FormControl><Input className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="seatNumber" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-[#6B7280]">رقم المقعد</FormLabel>
                             <FormControl><Input className="border-gray-200 focus:border-[#00AEEF] rounded-lg" {...field} value={field.value || ""} /></FormControl>
                           </FormItem>
                         )} />

@@ -48,6 +48,18 @@ export interface Ticket {
   /** @nullable */
   passengerName?: string | null;
   /** @nullable */
+  passengerArabicName?: string | null;
+  /** @nullable */
+  nationality?: string | null;
+  /** @nullable */
+  passengerType?: string | null;
+  /** @nullable */
+  dateOfBirth?: string | null;
+  /** @nullable */
+  passportNumber?: string | null;
+  /** @nullable */
+  seatNumber?: string | null;
+  /** @nullable */
   ticketNumber?: string | null;
   /** @nullable */
   bookingReference?: string | null;
@@ -96,6 +108,18 @@ export interface TicketInput {
 export interface TicketUpdate {
   /** @nullable */
   passengerName?: string | null;
+  /** @nullable */
+  passengerArabicName?: string | null;
+  /** @nullable */
+  nationality?: string | null;
+  /** @nullable */
+  passengerType?: string | null;
+  /** @nullable */
+  dateOfBirth?: string | null;
+  /** @nullable */
+  passportNumber?: string | null;
+  /** @nullable */
+  seatNumber?: string | null;
   /** @nullable */
   ticketNumber?: string | null;
   /** @nullable */

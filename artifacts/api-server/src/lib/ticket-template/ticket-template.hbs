@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تذكرة طيران إلكترونية</title>
+  <title>تذكرة طيران إلكترونية - ALBAJA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
     * {
       margin: 0;
       padding: 0;
@@ -17,712 +18,1312 @@
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-
-    body {
-      font-family: "Cairo", sans-serif;
-      background: #f0f4f8;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      padding: 24px 16px;
-    }
-
-    /* ═══════════════════════════════════════
-       CARD WRAPPER
-    ═══════════════════════════════════════ */
-    .ticket-card {
-      width: 100%;
-      max-width: 860px;
+    html, body {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      font-family: 'Cairo', sans-serif;
       background: #ffffff;
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0, 59, 111, 0.18),
-        0 4px 16px rgba(0, 0, 0, 0.08);
     }
-
-    /* ═══════════════════════════════════════
-       HEADER
-    ═══════════════════════════════════════ */
-    .ticket-header {
-      background: linear-gradient(135deg, #003b6f 0%, #0a5a8c 60%, #0d6fa8 100%);
-      padding: 24px 28px 20px;
+    .ticket {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
       position: relative;
-      overflow: hidden;
+    }
+    @media print {
+      html, body, .ticket { width: 210mm; height: 297mm; overflow: hidden; }
     }
 
-    /* زخرفة هندسية خفيفة */
-    .ticket-header::before {
-      content: "";
-      position: absolute;
-      top: -60px;
-      left: -60px;
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.04);
-      pointer-events: none;
-    }
-    .ticket-header::after {
-      content: "";
-      position: absolute;
-      bottom: -40px;
-      right: 200px;
-      width: 160px;
-      height: 160px;
-      border-radius: 50%;
-      background: rgba(245, 166, 35, 0.06);
-      pointer-events: none;
-    }
-
-    .header-inner {
+    /* ════════════ HEADER ════════════ */
+    .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      position: relative;
-      z-index: 1;
-      direction: ltr; /* Force Left-to-Right visual layout for guaranteed alignment */
-    }
-
-    /* — اليسار: اللوجو واسم المسافر (عمودي) — */
-    .header-left-section {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
+      padding: 8px 32px;
+      border-bottom: 3px solid #D4A23A;
       flex-shrink: 0;
+      height: auto;
+      min-height: 100px;
     }
-
-    .header-logo {
-      flex-shrink: 0;
-    }
-
-    .header-logo-row {
+    .header-left {
       display: flex;
       align-items: center;
-      gap: 10px;
     }
-
-.logo-img {
-  height: 180px;
-  max-width: 320px;
-  width: auto;
-  object-fit: contain;
-}
-
-    .logo-text-fallback {
-      color: #ffffff;
-      font-size: 20px; /* Reduced for better proportion when image fails */
-      font-weight: 900;
-      letter-spacing: 1px;
+    .logo {
+      height: 235px;
+      max-width: 380px;
+      width: auto;
+      object-fit: contain;
+      margin-top: 6px;
+      margin-right: 6px;
     }
-
-    .logo-text-fallback span {
-      color: #f5a623;
-    }
-
-    /* — اسم المسافر (يسار، أسفل اللوجو، لون أبيض عريض) — */
-    .passenger-row {
+    .header-right {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      direction: rtl;
-      text-align: right;
+      align-items: flex-end;
+      gap: 4px;
     }
-
-    .passenger-label {
-      color: rgba(255, 255, 255, 0.65);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
+    .header-decoration {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      margin: 2px 0;
     }
-
-    .passenger-name {
-      color: #ffffff;
-      font-size: 18px; /* Bold and white */
-      font-weight: 800;
-      letter-spacing: 0.5px;
-    }
-
-    /* — الوسط: العناوين (في المنتصف تماماً) — */
-    .header-title {
+    .header-decoration .line {
       flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #D4A23A, transparent);
+    }
+    .header-decoration .plane-icon {
+      width: 24px;
+      height: 24px;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      text-align: center;
+      flex-shrink: 0;
     }
-
-    .header-title-ar {
-      color: #ffffff;
-      font-size: 24px; /* Larger and bold */
+    .header-decoration .plane-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #D4A23A;
+    }
+    .title-ar {
+      font-size: 26px;
       font-weight: 800;
-      letter-spacing: 0.5px;
+      color: #002B5C;
+      letter-spacing: 0.8px;
     }
-
-    .header-title-en {
-      color: rgba(255, 255, 255, 0.55); /* Lighter opacity */
-      font-size: 11px;
-      font-weight: 400;
-      letter-spacing: 2px;
+    .title-en {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      letter-spacing: 3px;
       text-transform: uppercase;
       direction: ltr;
     }
 
-    /* — اليمين: كارت رقم التذكرة والحجز — */
-    .booking-card {
-      background: rgba(255, 255, 255, 0.97);
-      border-radius: 16px;
-      padding: 14px 18px;
-      min-width: 195px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-      direction: rtl;
+    /* ════════════ UPPER CONTENT ════════════ */
+    .upper-content {
+      display: flex;
+      gap: 12px;
+      padding: 6px 32px 4px;
       flex-shrink: 0;
     }
 
-    .booking-card-row {
+    /* -- Ticket Info Card (RIGHT, 35%) -- */
+    .ticket-info-card {
+      flex: 7;
+      background: #002B5C;
+      border-radius: 14px;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      justify-content: center;
+      min-width: 140px;
     }
-
-    .booking-item {
+    .ticket-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .ticket-title-group {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 0;
     }
-
-    .booking-item-label {
-      color: #6b7280;
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-
-    .booking-item-value {
-      color: #003b6f;
-      font-size: 15px;
+    .ticket-title-ar {
+      font-size: 14px;
       font-weight: 800;
-      letter-spacing: 1px;
+      color: #ffffff;
+    }
+    .ticket-title-en {
+      font-size: 8px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      direction: ltr;
+      text-align: right;
+    }
+    .ticket-icon-box {
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .ticket-icon-box svg {
+      width: 20px;
+      height: 20px;
+      stroke: rgba(255,255,255,0.8);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .ticket-field {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 4px 0;
+    }
+    .ticket-field .ticket-field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ticket-field .ticket-field-label .label-ar {
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+    }
+    .ticket-field .ticket-field-label .label-en {
+      font-size: 7px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
       direction: ltr;
     }
-
-    .divider-line {
+    .ticket-field .ticket-field-value {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      direction: ltr;
+      text-align: right;
+      margin-top: 1px;
+    }
+    .dotted-sep {
       border: none;
-      border-top: 1px solid #e5e7eb;
-      margin: 2px 0;
+      border-top: 1.5px dashed rgba(255,255,255,0.15);
+      margin: 1px 0;
     }
 
-    /* ═══════════════════════════════════════
-       FLIGHT SECTION
-    ═══════════════════════════════════════ */
-    .flight-section {
-      padding: 24px 28px;
-      background: #ffffff;
+    /* -- Status Bar (Gold) -- */
+    .status-bar {
+      background: #D4A23A;
+      border-radius: 6px;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 2px;
+      direction: ltr;
+    }
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-check-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .status-check-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: #ffffff;
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .status-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .status-text-ar {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(0,43,92,0.85);
+      line-height: 1.2;
+    }
+    .status-text-en {
+      font-size: 7px;
+      font-weight: 600;
+      color: rgba(0,43,92,0.55);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .status-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0;
+    }
+    .status-right-en {
+      font-size: 14px;
+      font-weight: 900;
+      color: #002B5C;
+      line-height: 1.2;
+    }
+    .status-right-ar {
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(0,43,92,0.7);
+      line-height: 1.2;
     }
 
-    .flight-card {
-      background: #f8fafc;
+    /* -- Passenger Card (LEFT, 65%) -- */
+    .passenger-card {
+      flex: 13;
+      background: #fafbfc;
       border: 1px solid #e5e7eb;
-      border-radius: 20px;
-      padding: 28px 32px;
+      border-radius: 14px;
+      padding: 10px 14px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .passenger-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: #D4A23A;
+      border-radius: 2px 0 0 2px;
+      z-index: 1;
+    }
+    .passenger-card::after {
+      content: 'ALBAJA';
+      position: absolute;
+      bottom: 2px;
+      right: 10px;
+      font-size: 44px;
+      font-weight: 900;
+      color: rgba(0, 43, 92, 0.03);
+      letter-spacing: 6px;
+      pointer-events: none;
+      z-index: 0;
+      line-height: 1;
+    }
+    .passenger-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .passenger-icon-box {
+      width: 40px;
+      height: 40px;
+      background: #002B5C;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .passenger-icon-box svg {
+      width: 22px;
+      height: 22px;
+      stroke: #ffffff;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .passenger-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .passenger-title-ar {
+      font-size: 14px;
+      font-weight: 800;
+      color: #002B5C;
+    }
+    .passenger-title-en {
+      font-size: 8px;
+      font-weight: 600;
+      color: #9ca3af;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      direction: ltr;
+      text-align: right;
+    }
+    .passenger-name-section {
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .passenger-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1f2937;
+      line-height: 1.3;
+    }
+    .passenger-name-ar {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    .passenger-details {
+      display: flex;
+      align-items: stretch;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 4px;
+      position: relative;
+      z-index: 1;
+      flex: 1;
+    }
+    .detail-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0 6px;
+      min-width: 0;
+    }
+    .detail-col:first-child { padding-right: 4px; }
+    .detail-col:last-child { padding-left: 0; }
+    .detail-divider {
+      width: 1px;
+      background: #e5e7eb;
+      flex-shrink: 0;
+      margin: 0;
+    }
+    .detail-label-ar {
+      font-size: 9px;
+      font-weight: 600;
+      color: #9ca3af;
+      line-height: 1.2;
+    }
+    .detail-label-en {
+      font-size: 7px;
+      font-weight: 500;
+      color: #b0b7c3;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      direction: ltr;
+      line-height: 1.2;
+    }
+    .detail-value {
+      font-size: 11px;
+      font-weight: 700;
+      color: #1f2937;
+      direction: ltr;
+      line-height: 1.2;
+      margin-top: 1px;
     }
 
+    /* ════════════ FLIGHT SECTION ════════════ */
+    .flight-section {
+      padding: 0 32px 6px;
+      flex-shrink: 0;
+    }
+    .flight-card {
+      background: #fafbfc;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 10px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .flight-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #D4A23A, #002B5C, #D4A23A);
+    }
     .flight-grid {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 16px;
+      gap: 6px;
     }
-
-    /* — مطار المغادرة — */
     .airport-block {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
-
-    .airport-block.departure {
-      text-align: right;
-    }
-
-    .airport-block.arrival {
-      text-align: left;
-    }
-
+    .airport-block.departure { text-align: right; }
+    .airport-block.arrival { text-align: left; }
     .airport-code {
-      font-size: 52px;
+      font-size: 46px;
       font-weight: 900;
-      color: #003b6f;
+      color: #002B5C;
       line-height: 1;
       letter-spacing: -1px;
       direction: ltr;
     }
-
-    .airport-city-ar {
-      font-size: 15px;
-      font-weight: 700;
-      color: #1f2937;
-    }
-
-    .airport-city-en {
+    .airport-city {
       font-size: 12px;
-      font-weight: 400;
-      color: #6b7280;
-      direction: ltr;
+      font-weight: 700;
+      color: #374151;
     }
-
     .airport-time {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 800;
       color: #1f2937;
-      margin-top: 8px;
+      margin-top: 2px;
       direction: ltr;
     }
-
     .airport-date {
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 500;
       color: #6b7280;
       direction: ltr;
     }
-
-    /* — خط الرحلة — */
     .route-center {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 4px;
       position: relative;
       min-width: 160px;
     }
-
     .route-line-wrap {
       width: 100%;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
+      height: 36px;
     }
-
     .route-dashes {
       width: 100%;
       border: none;
-      border-top: 2px dashed #c7d2e0;
+      border-top: 2px dashed #9ca3af;
       position: absolute;
       top: 50%;
       left: 0;
       transform: translateY(-50%);
     }
-
     .plane-icon {
       position: relative;
       z-index: 2;
       background: #ffffff;
-      border: 2px solid #e5e7eb;
+      border: 2px solid #d1d5db;
       border-radius: 50%;
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(0, 59, 111, 0.12);
+      box-shadow: 0 2px 6px rgba(0,43,92,0.12);
     }
-
     .plane-svg {
-      width: 22px;
-      height: 22px;
-      fill: #003b6f;
+      width: 18px;
+      height: 18px;
+      fill: #002B5C;
     }
-
-    .flight-badge {
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 6px 14px;
-      font-size: 13px;
+    .flight-airline-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin-top: 2px;
+    }
+    .flight-airline-name {
+      font-size: 14px;
       font-weight: 700;
-      color: #003b6f;
+      color: #002B5C;
+      line-height: 1.3;
+    }
+    .flight-airline-number {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      letter-spacing: 0.5px;
+      direction: ltr;
+    }
+    .flight-duration-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #002B5C;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #ffffff;
       direction: ltr;
       white-space: nowrap;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      margin-top: 3px;
+      box-shadow: 0 2px 6px rgba(0,43,92,0.15);
+    }
+    .flight-duration-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
 
-    /* ═══════════════════════════════════════
-       INFO STRIP
-    ═══════════════════════════════════════ */
+    /* ════════════ INFO STRIP ════════════ */
     .info-strip {
-      background: #003b6f;
-      padding: 0 28px;
-      margin: 0 28px 24px;
-      border-radius: 16px;
-      display: flex;
-      align-items: stretch;
-      min-height: 88px;
-      overflow: hidden;
+      margin: 0 32px;
+      background: #002B5C;
+      border-radius: 12px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      align-items: center;
+      justify-items: center;
+      height: 80px;
+      padding: 0;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      position: relative;
     }
-
     .info-item {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 14px 8px;
+      width: 100%;
+      height: 100%;
       position: relative;
     }
-
-    .info-item:not(:last-child)::after {
-      content: "";
+    .info-item + .info-item::before {
+      content: '';
       position: absolute;
-      right: 0;
-      top: 20%;
-      height: 60%;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 70%;
       width: 1px;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255,255,255,0.15);
     }
-
     .info-icon {
-      width: 20px;
-      height: 20px;
-      fill: rgba(255, 255, 255, 0.7);
-      margin-bottom: 2px;
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 4px;
     }
-
-    .info-label {
-      font-size: 10px;
-      font-weight: 500;
-      color: #d1d5db;
-      letter-spacing: 0.3px;
+    .info-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: #D4A23A;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .info-icon svg[fill] { fill: #D4A23A; }
+    .info-label-ar {
+      font-size: 9px;
+      font-weight: 600;
+      color: #FFFFFF;
       text-align: center;
+      line-height: 1.1;
+      margin-bottom: 1px;
     }
-
+    .info-label-en {
+      font-size: 8px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.65);
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
     .info-value {
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 700;
       color: #ffffff;
       text-align: center;
       direction: ltr;
+      line-height: 1.1;
     }
 
-    /* ═══════════════════════════════════════
-       SEPARATOR (tear line)
-    ═══════════════════════════════════════ */
-    .tear-line {
+    /* ════════════ BOTTOM SECTION ════════════ */
+    .bottom-section {
       display: flex;
-      align-items: center;
-      gap: 0;
-      padding: 0 28px;
-      margin-bottom: 20px;
-    }
-
-    .tear-circle {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #f0f4f8;
+      gap: 16px;
+      padding: 4px 32px;
       flex-shrink: 0;
-    }
-
-    .tear-dots {
       flex: 1;
-      border: none;
-      border-top: 2px dashed #d1d5db;
     }
 
-    /* ═══════════════════════════════════════
-       FOOTER
-    ═══════════════════════════════════════ */
-    .ticket-footer {
-      padding: 4px 28px 28px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 24px;
-      direction: rtl;
-    }
-
-    /* — باركود — */
-    .barcode-section {
+    /* -- QR Section -- */
+    .qr-section {
+      flex: 0 0 140px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
+      gap: 4px;
+      justify-content: center;
     }
-
-    .barcode-svg-wrap {
+    .qr-frame {
+      width: 120px;
+      height: 120px;
       background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 8px 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
-    .barcode-number {
-      font-size: 12px;
+    .qr-frame svg { width: 100px; height: 100px; }
+    .qr-ticket-number {
+      font-size: 11px;
       font-weight: 600;
       color: #374151;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
       direction: ltr;
+      text-align: center;
+    }
+    .qr-cta {
+      display: inline-block;
+      background: #D4A23A;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 6px 24px;
+      letter-spacing: 0.5px;
     }
 
-    /* — تعليمات السفر — */
-    .travel-notes {
+    /* -- Instructions -- */
+    .instructions {
       flex: 1;
-      direction: rtl;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2px 0;
     }
-
-    .notes-title {
-      font-size: 14px;
+    .instructions-title {
+      font-size: 13px;
       font-weight: 800;
-      color: #f5a623;
-      margin-bottom: 10px;
+      color: #002B5C;
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-
-    .notes-title::before {
-      content: "";
+    .instructions-title::before {
+      content: '';
       display: inline-block;
-      width: 4px;
-      height: 16px;
-      background: #f5a623;
+      width: 3px;
+      height: 14px;
+      background: #D4A23A;
       border-radius: 2px;
+      flex-shrink: 0;
     }
-
     .notes-list {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 3px;
     }
-
     .notes-list li {
-      font-size: 12px;
-      color: #4b5563;
-      font-weight: 500;
       display: flex;
       align-items: flex-start;
-      gap: 8px;
-      line-height: 1.5;
-    }
-
-    .notes-list li::before {
-      content: "•";
-      color: #003b6f;
-      font-size: 16px;
-      line-height: 1.2;
-      flex-shrink: 0;
-    }
-
-    /* ═══════════════════════════════════════
-       PRICE BADGE (اختياري)
-    ═══════════════════════════════════════ */
-    .price-badge {
-      display: inline-flex;
-      align-items: center;
       gap: 6px;
-      background: #fef3c7;
-      border: 1px solid #f5a623;
-      border-radius: 8px;
-      padding: 4px 12px;
-      margin-top: 8px;
+      font-size: 11px;
+      color: #4b5563;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .note-icon-wrap {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .note-icon {
+      width: 14px;
+      height: 14px;
+    }
+    .note-text {
+      flex: 1;
+      line-height: 1.4;
     }
 
-    .price-badge span {
+    /* ════════════ FOOTER WAVE ════════════ */
+    .footer-wave {
+      width: 100%;
+      height: 34px;
+      flex-shrink: 0;
+      overflow: hidden;
+      display: block;
+    }
+    .wave-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ════════════ FOOTER ════════════ */
+    .footer {
+      background: #002B5C;
+      flex-shrink: 0;
+      padding: 24px 32px 20px;
+    }
+    .footer-content {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      align-items: start;
+    }
+    .footer-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 3px;
+      padding: 0 8px;
+    }
+    .footer-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(212,162,58,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-bottom: 4px;
+    }
+    .footer-icon-wrap svg {
+      width: 20px;
+      height: 20px;
+      stroke: #D4A23A;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .footer-col-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.3;
+    }
+    .footer-col-value {
       font-size: 13px;
-      font-weight: 700;
-      color: #92400e;
+      font-weight: 600;
+      color: #ffffff;
+      direction: ltr;
     }
-
-    /* print */
-    @media print {
-      body {
-        background: white;
-        padding: 0;
-      }
-      .ticket-card {
-        box-shadow: none;
-        border-radius: 0;
-        max-width: 100%;
-      }
+    .footer-social-icons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .footer-social-icons a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      text-decoration: none;
+    }
+    .footer-social-icons a svg {
+      width: 16px;
+      height: 16px;
+      fill: rgba(255,255,255,0.6);
+    }
+    .footer-slogan-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 12px 0 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .slogan-line {
+      flex: 1;
+      max-width: 80px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #D4A23A, transparent);
+    }
+    .slogan-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+    .slogan-ar {
+      font-size: 15px;
+      font-weight: 700;
+      color: #D4A23A;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .slogan-en {
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 1px;
+      direction: ltr;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="ticket-card">
+  <div class="ticket">
 
-    <!-- ══════════════ HEADER ══════════════ -->
-    <div class="ticket-header">
-      <div class="header-inner">
+    <!-- ══════════ HEADER ══════════ -->
+    <div class="header">
+      <div class="header-left">
+        <img src="{{logoUrl}}" alt="ALBAJA" class="logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+        <span style="display:none; font-size:235px; font-weight:900; color:#002B5C; letter-spacing:4px; line-height:1;">ALBAJA</span>
+      </div>
+      <div class="header-right">
+        <div class="title-ar">تذكرة طيران إلكترونية</div>
+        <div class="title-en">ELECTRONIC AIRLINE TICKET</div>
+        <div class="header-decoration">
+          <span class="line"></span>
+          <span class="plane-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
+            </svg>
+          </span>
+          <span class="line"></span>
+        </div>
+      </div>
+    </div>
 
-        <!-- يسار: لوجو واسم المسافر (عمودي) -->
-        <div class="header-left-section">
-          <div class="header-logo">
-            <div class="header-logo-row">
-              <img src="{{logoUrl}}" alt="{{companyName}}" class="logo-img" onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='inline-block';" />
-              <span id="logo-fallback" class="logo-text-fallback" style="display: none;">AL<span>BAJA</span></span>
-            </div>
+    <!-- ══════════ UPPER CONTENT ══════════ -->
+    <div class="upper-content">
+
+      <!-- RIGHT: Ticket Info Card (40%) -->
+      <div class="ticket-info-card">
+        <div class="ticket-header">
+          <div class="ticket-title-group">
+            <div class="ticket-title-ar">بيانات التذكرة</div>
+            <div class="ticket-title-en">TICKET INFORMATION</div>
           </div>
-          <div class="passenger-row">
-            <div class="passenger-label">اسم المسافر / Passenger Name</div>
-            <div class="passenger-name">{{passengerName}}</div>
+          <div class="ticket-icon-box">
+            <svg viewBox="0 0 24 24">
+              <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+              <path d="M13 5v2"/>
+              <path d="M13 11v2"/>
+              <path d="M13 17v2"/>
+            </svg>
           </div>
         </div>
 
-        <!-- وسط: عنوان -->
-        <div class="header-title">
-          <div class="header-title-ar">تذكرة طيران إلكترونية</div>
-          <div class="header-title-en">ELECTRONIC AIRLINE TICKET</div>
+        <div class="ticket-field">
+          <div class="ticket-field-label">
+            <span class="label-ar">رقم التذكرة</span>
+            <span class="label-en">TICKET NO.</span>
+          </div>
+          <div class="ticket-field-value">{{ticketNumber}}</div>
         </div>
 
-        <!-- يمين: كارت التذكرة -->
-        <div class="booking-card">
-          <div class="booking-card-row">
-            <div class="booking-item">
-              <div class="booking-item-label">رقم التذكرة / Ticket No.</div>
-              <div class="booking-item-value">{{ticketNumber}}</div>
+        <hr class="dotted-sep" />
+
+        <div class="ticket-field">
+          <div class="ticket-field-label">
+            <span class="label-ar">رقم الحجز</span>
+            <span class="label-en">BOOKING REF.</span>
+          </div>
+          <div class="ticket-field-value">{{bookingRef}}</div>
+        </div>
+
+        <hr class="dotted-sep" />
+
+        <div class="ticket-field" style="padding-bottom:0;">
+          <div class="ticket-field-label" style="margin-bottom:6px;">
+            <span class="label-ar">حالة التذكرة</span>
+            <span class="label-en">STATUS</span>
+          </div>
+          <div class="status-bar">
+            <div class="status-left">
+              <div class="status-check-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <div class="status-text-group">
+                <span class="status-text-ar">حالة التذكرة</span>
+                <span class="status-text-en">STATUS</span>
+              </div>
             </div>
-            <hr class="divider-line" />
-            <div class="booking-item">
-              <div class="booking-item-label">رقم الحجز / Booking Ref.</div>
-              <div class="booking-item-value">{{bookingRef}}</div>
+            <div class="status-right">
+              <span class="status-right-en">{{#if ticketStatus}}{{ticketStatus}}{{else}}CONFIRMED{{/if}}</span>
+              <span class="status-right-ar">مؤكدة</span>
             </div>
           </div>
         </div>
+      </div>
 
-      </div><!-- /header-inner -->
-    </div><!-- /ticket-header -->
+      <!-- LEFT: Passenger Card (60%) -->
+      <div class="passenger-card">
+        <div class="passenger-header">
+          <div class="passenger-icon-box">
+            <svg viewBox="0 0 24 24">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="passenger-title-group">
+            <div class="passenger-title-ar">بيانات المسافر</div>
+            <div class="passenger-title-en">PASSENGER INFORMATION</div>
+          </div>
+        </div>
 
-    <!-- ══════════════ FLIGHT SECTION ══════════════ -->
+        <div class="passenger-name-section">
+          <div class="passenger-name">{{passengerName}}</div>
+          <div class="passenger-name-ar">{{passengerArabicName}}</div>
+        </div>
+
+        <div class="passenger-details">
+          <div class="detail-col">
+            <div class="detail-label-ar">الجنسية</div>
+            <div class="detail-label-en">NATIONALITY</div>
+            <div class="detail-value">{{nationality}}</div>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-col">
+            <div class="detail-label-ar">النوع</div>
+            <div class="detail-label-en">TYPE</div>
+            <div class="detail-value">{{passengerType}}</div>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-col">
+            <div class="detail-label-ar">تاريخ الميلاد</div>
+            <div class="detail-label-en">DOB</div>
+            <div class="detail-value">{{dateOfBirth}}</div>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-col">
+            <div class="detail-label-ar">رقم الجواز</div>
+            <div class="detail-label-en">PASSPORT NO.</div>
+            <div class="detail-value">{{passportNumber}}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════ FLIGHT SECTION ══════════ -->
     <div class="flight-section">
       <div class="flight-card">
         <div class="flight-grid">
 
-          <!-- المغادرة (يمين) -->
           <div class="airport-block departure">
             <div class="airport-code">{{fromCode}}</div>
-            <div class="airport-city-ar">{{fromCityAr}}</div>
-            <div class="airport-city-en">{{fromCityEn}}</div>
+            <div class="airport-city">{{fromCityAr}}</div>
             <div class="airport-time">{{departureTime}}</div>
             <div class="airport-date">{{departureDate}}</div>
           </div>
 
-          <!-- المسار -->
           <div class="route-center">
-            <div class="route-line-wrap" style="height:44px;">
-              <div class="route-dashes"></div>
+            <div class="route-line-wrap">
+              <hr class="route-dashes" />
               <div class="plane-icon">
-                <!-- طائرة SVG -->
-                <svg class="plane-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="plane-svg" viewBox="0 0 24 24">
                   <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
                 </svg>
               </div>
             </div>
-            <div class="flight-badge">{{airline}} {{flightNumber}}</div>
+            <div class="flight-airline-row">
+              <span class="flight-airline-name">{{airline}}</span>
+              <span class="flight-airline-number">{{flightNumber}}</span>
+            </div>
+            <div class="flight-duration-badge">
+              <svg class="flight-duration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>{{duration}}</span>
+            </div>
           </div>
 
-          <!-- الوصول (يسار) -->
           <div class="airport-block arrival">
             <div class="airport-code">{{toCode}}</div>
-            <div class="airport-city-ar">{{toCityAr}}</div>
-            <div class="airport-city-en">{{toCityEn}}</div>
+            <div class="airport-city">{{toCityAr}}</div>
             <div class="airport-time">{{arrivalTime}}</div>
             <div class="airport-date">{{arrivalDate}}</div>
           </div>
 
-        </div><!-- /flight-grid -->
-      </div><!-- /flight-card -->
-    </div><!-- /flight-section -->
-
-    <!-- ══════════════ INFO STRIP ══════════════ -->
-    <div class="info-strip">
-
-      <!-- درجة السفر -->
-      <div class="info-item">
-        <svg class="info-icon" viewBox="0 0 24 24"><path d="M20 6H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm-9 7H5v-2h6v2zm8 0h-2v-2h2v2zm0-4H5V8h14v1z"/></svg>
-        <div class="info-label">درجة السفر</div>
-        <div class="info-value">{{travelClass}}</div>
+        </div>
       </div>
-
-      <!-- الأمتعة -->
-      <div class="info-item">
-        <svg class="info-icon" viewBox="0 0 24 24"><path d="M9 4h6V2H9v2zM4 7v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2zm8 11H8v-2h4v2zm4-6H8V9h8v3z"/></svg>
-        <div class="info-label">الوزن</div>
-        <div class="info-value">{{baggageAllowance}}</div>
-      </div>
-
-      <!-- شركة الطيران -->
-      <div class="info-item">
-        <svg class="info-icon" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
-        <div class="info-label">شركة الطيران</div>
-        <div class="info-value">{{airline}}</div>
-      </div>
-
-      <!-- رقم الرحلة -->
-      <div class="info-item">
-        <svg class="info-icon" viewBox="0 0 24 24"><path d="M3 17h18v2H3v-2zm0-7h18v5H3v-5zm0-4h18v2H3V6z"/></svg>
-        <div class="info-label">رقم الرحلة</div>
-        <div class="info-value">{{flightNumber}}</div>
-      </div>
-
-      <!-- تاريخ الإصدار -->
-      <div class="info-item">
-        <svg class="info-icon" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
-        <div class="info-label">تاريخ الإصدار</div>
-        <div class="info-value">{{issueDate}}</div>
-      </div>
-
-    </div><!-- /info-strip -->
-
-    <!-- ══════════════ TEAR LINE ══════════════ -->
-    <div class="tear-line">
-      <div class="tear-circle"></div>
-      <hr class="tear-dots" />
-      <div class="tear-circle"></div>
     </div>
 
-    <!-- ══════════════ FOOTER ══════════════ -->
-    <div class="ticket-footer">
-
-      <!-- تعليمات السفر (يمين في RTL) -->
-      <div class="travel-notes">
-        <div class="notes-title">تعليمات السفر الهامة</div>
-        <ul class="notes-list">
-          {{#each travelNotes}}
-            <li>{{this}}</li>
-          {{/each}}
-        </ul>
-
-        {{#if showPrice}}
-          {{#if price}}
-            <div class="price-badge" style="margin-top:12px;">
-              <span>{{price}} {{currency}}</span>
-            </div>
-          {{/if}}
-        {{/if}}
-      </div>
-
-      <!-- باركود (يسار في RTL) -->
-      <div class="barcode-section">
-        <div class="barcode-svg-wrap">
-          <svg width="240" height="64" viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg">
-            <rect width="240" height="64" fill="#ffffff" rx="8" />
-            {{#each barcodeData}}
-              <rect x="{{x}}" y="6" width="{{w}}" height="52" fill="#111827" />
-            {{/each}}
+    <!-- ══════════ INFO STRIP ══════════ -->
+    <div class="info-strip">
+      <!-- 1. Issue Date -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
         </div>
-        <div class="barcode-number">{{ticketNumber}}</div>
+        <div class="info-label-ar">تاريخ الإصدار</div>
+        <div class="info-label-en">Issue Date</div>
+        <div class="info-value">{{issueDate}}</div>
+      </div>
+      <!-- 2. Booking Reference -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+            <path d="M13 5v2"/>
+            <path d="M13 11v2"/>
+            <path d="M13 17v2"/>
+          </svg>
+        </div>
+        <div class="info-label-ar">رقم الحجز</div>
+        <div class="info-label-en">Booking Ref</div>
+        <div class="info-value">{{bookingRef}}</div>
+      </div>
+      <!-- 3. Airline -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>
+          </svg>
+        </div>
+        <div class="info-label-ar">شركة الطيران</div>
+        <div class="info-label-en">Airline</div>
+        <div class="info-value">{{airline}}</div>
+      </div>
+      <!-- 4. Baggage Allowance -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="6" width="16" height="14" rx="2" ry="2"/>
+            <path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/>
+            <line x1="12" y1="11" x2="12" y2="17"/>
+            <polyline points="9 14 12 17 15 14"/>
+          </svg>
+        </div>
+        <div class="info-label-ar">الأمتعة المسموح</div>
+        <div class="info-label-en">Baggage</div>
+        <div class="info-value">{{baggageAllowance}}</div>
+      </div>
+      <!-- 5. Travel Class -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </div>
+        <div class="info-label-ar">درجة السفر</div>
+        <div class="info-label-en">Class</div>
+        <div class="info-value">{{travelClass}}</div>
+      </div>
+      <!-- 6. Seat Number -->
+      <div class="info-item">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+        </div>
+        <div class="info-label-ar">رقم المقعد</div>
+        <div class="info-label-en">Seat</div>
+        <div class="info-value">{{#if seatNumber}}{{seatNumber}}{{else}}—{{/if}}</div>
+      </div>
+    </div>
+
+    <!-- ══════════ BOTTOM SECTION ══════════ -->
+    <div class="bottom-section">
+
+      <!-- LEFT: QR Code -->
+      <div class="qr-section">
+        <div class="qr-frame">
+          <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+            <rect width="21" height="21" fill="#ffffff"/>
+            <rect x="0" y="0" width="7" height="7" fill="#002B5C" rx="0.5"/>
+            <rect x="1" y="1" width="5" height="5" fill="#ffffff"/>
+            <rect x="2" y="2" width="3" height="3" fill="#002B5C"/>
+            <rect x="14" y="0" width="7" height="7" fill="#002B5C" rx="0.5"/>
+            <rect x="15" y="1" width="5" height="5" fill="#ffffff"/>
+            <rect x="16" y="2" width="3" height="3" fill="#002B5C"/>
+            <rect x="0" y="14" width="7" height="7" fill="#002B5C" rx="0.5"/>
+            <rect x="1" y="15" width="5" height="5" fill="#ffffff"/>
+            <rect x="2" y="16" width="3" height="3" fill="#002B5C"/>
+            <rect x="14" y="14" width="5" height="5" fill="#002B5C" rx="0.3"/>
+            <rect x="15" y="15" width="3" height="3" fill="#ffffff"/>
+            <rect x="16" y="16" width="1" height="1" fill="#002B5C"/>
+            <rect x="0" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="2" y="8" width="2" height="1" fill="#002B5C"/>
+            <rect x="5" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="7" y="8" width="2" height="1" fill="#002B5C"/>
+            <rect x="10" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="8" width="2" height="1" fill="#002B5C"/>
+            <rect x="15" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="17" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="19" y="8" width="1" height="1" fill="#002B5C"/>
+            <rect x="0" y="9" width="1" height="1" fill="#002B5C"/>
+            <rect x="3" y="9" width="1" height="1" fill="#002B5C"/>
+            <rect x="6" y="9" width="2" height="1" fill="#002B5C"/>
+            <rect x="9" y="9" width="1" height="1" fill="#002B5C"/>
+            <rect x="11" y="9" width="2" height="1" fill="#002B5C"/>
+            <rect x="14" y="9" width="1" height="1" fill="#002B5C"/>
+            <rect x="16" y="9" width="1" height="1" fill="#002B5C"/>
+            <rect x="18" y="9" width="2" height="1" fill="#002B5C"/>
+            <rect x="1" y="10" width="2" height="1" fill="#002B5C"/>
+            <rect x="4" y="10" width="1" height="1" fill="#002B5C"/>
+            <rect x="7" y="10" width="1" height="1" fill="#002B5C"/>
+            <rect x="9" y="10" width="3" height="1" fill="#002B5C"/>
+            <rect x="13" y="10" width="1" height="1" fill="#002B5C"/>
+            <rect x="15" y="10" width="2" height="1" fill="#002B5C"/>
+            <rect x="18" y="10" width="1" height="1" fill="#002B5C"/>
+            <rect x="0" y="11" width="1" height="1" fill="#002B5C"/>
+            <rect x="3" y="11" width="2" height="1" fill="#002B5C"/>
+            <rect x="6" y="11" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="11" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="11" width="2" height="1" fill="#002B5C"/>
+            <rect x="13" y="11" width="2" height="1" fill="#002B5C"/>
+            <rect x="16" y="11" width="1" height="1" fill="#002B5C"/>
+            <rect x="19" y="11" width="1" height="1" fill="#002B5C"/>
+            <rect x="2" y="12" width="1" height="1" fill="#002B5C"/>
+            <rect x="4" y="12" width="2" height="1" fill="#002B5C"/>
+            <rect x="8" y="12" width="2" height="1" fill="#002B5C"/>
+            <rect x="11" y="12" width="1" height="1" fill="#002B5C"/>
+            <rect x="14" y="12" width="1" height="1" fill="#002B5C"/>
+            <rect x="17" y="12" width="2" height="1" fill="#002B5C"/>
+            <rect x="0" y="13" width="2" height="1" fill="#002B5C"/>
+            <rect x="3" y="13" width="1" height="1" fill="#002B5C"/>
+            <rect x="7" y="13" width="3" height="1" fill="#002B5C"/>
+            <rect x="11" y="13" width="1" height="1" fill="#002B5C"/>
+            <rect x="13" y="13" width="1" height="1" fill="#002B5C"/>
+            <rect x="16" y="13" width="1" height="1" fill="#002B5C"/>
+            <rect x="18" y="13" width="2" height="1" fill="#002B5C"/>
+            <rect x="8" y="0" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="0" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="0" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="2" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="2" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="2" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="4" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="4" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="4" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="6" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="6" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="6" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="14" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="14" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="14" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="16" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="16" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="16" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="18" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="18" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="18" width="1" height="1" fill="#002B5C"/>
+            <rect x="8" y="20" width="1" height="1" fill="#002B5C"/>
+            <rect x="10" y="20" width="1" height="1" fill="#002B5C"/>
+            <rect x="12" y="20" width="1" height="1" fill="#002B5C"/>
+          </svg>
+        </div>
+        <div class="qr-ticket-number">{{ticketNumber}}</div>
+        <div class="qr-cta">Scan at Check-In</div>
       </div>
 
-    </div><!-- /ticket-footer -->
+      <!-- RIGHT: Travel Instructions -->
+      <div class="instructions">
+        <div class="instructions-title">تعليمات السفر الهامة</div>
+        <ul class="notes-list">
+          {{#each travelNotes}}
+            <li>
+              <span class="note-icon-wrap">{{{noteIcon @index}}}</span>
+              <span class="note-text">{{this}}</span>
+            </li>
+          {{/each}}
+        </ul>
+      </div>
 
-  </div><!-- /ticket-card -->
+    </div>
+
+    <!-- ══════════ FOOTER ══════════ -->
+    <div class="footer-wave">
+      <svg viewBox="0 0 210 34" preserveAspectRatio="none" class="wave-svg">
+        <path d="M0,8 Q52.5,28 105,8 T210,8" fill="none" stroke="#D4A23A" stroke-width="2.5"/>
+        <path d="M0,14 Q52.5,34 105,14 T210,14" fill="none" stroke="#002B5C" stroke-width="3.5"/>
+      </svg>
+    </div>
+    <div class="footer">
+      <div class="footer-content">
+        <div class="footer-grid">
+          <!-- 1. Phone -->
+          <div class="footer-col">
+            <div class="footer-icon-wrap">
+              <svg viewBox="0 0 24 24">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <div class="footer-col-label">للحجز والاستفسار</div>
+            <div class="footer-col-value">{{companyPhone}}</div>
+          </div>
+          <!-- 2. Email -->
+          <div class="footer-col">
+            <div class="footer-icon-wrap">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div class="footer-col-value">{{companyEmail}}</div>
+          </div>
+          <!-- 3. Website -->
+          <div class="footer-col">
+            <div class="footer-icon-wrap">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            </div>
+            <div class="footer-col-value">{{companyWebsite}}</div>
+          </div>
+          <!-- 4. Social Media -->
+          <div class="footer-col">
+            <div class="footer-col-label" style="color:#FFFFFF;font-weight:600;margin-bottom:2px;">تابعونا على</div>
+            <div class="footer-col-label" style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">Follow us</div>
+            <div class="footer-social-icons">
+              <a href="#"><svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+              <a href="#"><svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg></a>
+              <a href="#"><svg viewBox="0 0 24 24"><path d="M23.91 3.79l-4.1 19.41c-.32 1.4-1.14 1.75-2.3 1.09l-6.36-4.69-3.07-2.97L2.5 13.1c-1.22-.38-1.22-1.22.27-1.8L21.75 2.05c1.08-.48 2.11.24 1.7 1.74zM8.6 17.13l.93-8.76 11.11-6.86-12.04 15.62z"/></svg></a>
+            </div>
+          </div>
+        </div>
+        <div class="footer-slogan-row">
+          <span class="slogan-line"></span>
+          <div class="slogan-text">
+            <div class="slogan-ar">البجع ... رحلتك تبدأ معنا</div>
+            <div class="slogan-en">ALBAJA ... YOUR JOURNEY BEGINS WITH US</div>
+          </div>
+          <span class="slogan-line"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </body>
 </html>

@@ -273,7 +273,9 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
     const allowed = [
-      "passengerName","ticketNumber","bookingReference","flightFrom","flightTo",
+      "passengerName","passengerArabicName","nationality","passengerType",
+      "dateOfBirth","passportNumber","seatNumber",
+      "ticketNumber","bookingReference","flightFrom","flightTo",
       "departureDate","departureTime","arrivalDate","arrivalTime","airline","flightNumber",
       "cabinClass","baggageAllowance","gate","price","currency","issueDate","hidePrice",
       "extractedData"
@@ -387,6 +389,12 @@ router.post("/:id/generate", requireAuth, async (req: AuthRequest, res) => {
       {
         ticketId: ticket.id,
         passengerName: ticket.passengerName,
+        passengerArabicName: ticket.passengerArabicName,
+        nationality: ticket.nationality,
+        passengerType: ticket.passengerType,
+        dateOfBirth: ticket.dateOfBirth,
+        passportNumber: ticket.passportNumber,
+        seatNumber: ticket.seatNumber,
         ticketNumber: ticket.ticketNumber,
         bookingReference: ticket.bookingReference,
         flightFrom: ticket.flightFrom,
