@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, ticketsTable, companiesTable, usersTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAuth } from "../middlewares/auth.js";
 import { uploadFile } from "../lib/supabase.js";
@@ -200,6 +200,16 @@ router.post("/upload", requireAuth, async (req: AuthRequest, res) => {
     } else {
       const firstFlight = ticketData.flights?.[0];
 
+      console.log("[EXTRACTED DATA KEYS]", Object.keys(ticketData));
+
+      console.log('[BOOKING DEBUG] before DB insert:', { bookingRef: ticketData.bookingRef, ticketNumber: ticketData.ticketNumber });
+      console.log('[DB INSERT]', {
+        flightFrom: firstFlight?.from,
+        flightTo: firstFlight?.to,
+        departureTime: firstFlight?.departureTime,
+        arrivalTime: firstFlight?.arrivalTime,
+      });
+
       const [updated] = await db
         .update(ticketsTable)
         .set({
@@ -210,6 +220,7 @@ router.post("/upload", requireAuth, async (req: AuthRequest, res) => {
           issueDate:        ticketData.issueDate        || null,
           price:            ticketData.price != null ? String(ticketData.price) : null,
           currency:         ticketData.currency         || null,
+          transitAirports:  ticketData.transitAirports   || null,
           flightFrom:       firstFlight?.from            || null,
           flightTo:         firstFlight?.to              || null,
           departureDate:    firstFlight?.departureDate   || null,
@@ -228,6 +239,60 @@ router.post("/upload", requireAuth, async (req: AuthRequest, res) => {
         .returning();
 
       finalTicket = updated;
+
+      // Create return ticket for round trips and link both
+      if (ticketData.isRoundTrip && ticketData.returnFlightFrom) {
+        try {
+          const returnId = randomUUID();
+          const returnTicketData = {
+            id: returnId,
+            companyId: user.companyId,
+            createdBy: user.id,
+            originalFileUrl: fileUrl,
+            rawText: rawText || null,
+            linkedTicketId: ticket.id,
+            passengerName: ticketData.passengerName || null,
+            ticketNumber: ticketData.ticketNumber || null,
+            bookingReference: ticketData.bookingRef || null,
+            issueDate: ticketData.issueDate || null,
+            flightFrom: ticketData.returnFlightFrom || null,
+            flightTo: ticketData.returnFlightTo || null,
+            departureDate: ticketData.returnDepartureDate || null,
+            departureTime: ticketData.returnDepartureTime || null,
+            arrivalDate: ticketData.returnArrivalDate || null,
+            arrivalTime: ticketData.returnArrivalTime || null,
+            airline: ticketData.returnAirline || ticketData.airline || null,
+            flightNumber: ticketData.returnFlightNumber || null,
+            status: "EDITING" as const,
+            isRoundTrip: true,
+            updatedAt: new Date(),
+            transitAirports: ticketData.returnTransitAirports ?? null,
+            cabinClass: null,
+            baggageAllowance: null,
+            gate: null,
+            price: ticketData.price != null ? String(ticketData.price) : null,
+            currency: ticketData.currency || null,
+            hidePrice: false,
+            extractedData: null,
+            seatNumber: null,
+            passengerArabicName: null,
+            nationality: null,
+            passengerType: null,
+            dateOfBirth: null,
+            passportNumber: null,
+            generatedFileUrl: null,
+          };
+          await db.insert(ticketsTable).values(returnTicketData);
+          // Link outbound ticket to return ticket
+          await db.update(ticketsTable)
+            .set({ linkedTicketId: returnId, updatedAt: new Date() })
+            .where(eq(ticketsTable.id, ticket.id));
+          req.log.info({ ticketId: returnId }, "Return ticket created for round trip");
+        } catch (rtError) {
+          req.log.error(rtError, "Failed to create return ticket");
+        }
+      }
+
       req.log.info({ ticketId: ticket.id, name: ticketData.passengerName }, "Ticket extraction succeeded");
 
       res.json({
@@ -277,7 +342,7 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
       "dateOfBirth","passportNumber","seatNumber",
       "ticketNumber","bookingReference","flightFrom","flightTo",
       "departureDate","departureTime","arrivalDate","arrivalTime","airline","flightNumber",
-      "cabinClass","baggageAllowance","gate","price","currency","issueDate","hidePrice",
+      "cabinClass","baggageAllowance","gate","transitAirports","price","currency","issueDate","hidePrice",
       "extractedData"
     ] as const;
     const body = req.body as Record<string, unknown>;
@@ -295,6 +360,8 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
       data.issueDate = ext.issueDate || null;
       data.price = ext.price != null ? String(ext.price) : null;
       data.currency = ext.currency || null;
+
+      data.transitAirports = ext.transitAirports || null;
 
       const firstFlight = ext.flights?.[0];
       if (firstFlight) {
@@ -360,6 +427,7 @@ router.post("/:id/generate", requireAuth, async (req: AuthRequest, res) => {
     let ticket;
     try {
       ticket = ticketRows[0];
+      console.log('[BOOKING DEBUG] after DB read:', { bookingReference: ticket?.bookingReference, ticketNumber: ticket?.ticketNumber });
       console.log("Verification - ticket data is not null:", !!ticket);
       if (!ticket || ticket.companyId !== user.companyId) {
         throw new Error("Ticket not found or unauthorized");
@@ -385,7 +453,123 @@ router.post("/:id/generate", requireAuth, async (req: AuthRequest, res) => {
 
     console.log("[STEP] Ticket loaded");
 
-    const pdfBuf = await generateTicketPDF(
+    const companyData = {
+      name: company.name,
+      logoUrl: company.logoUrl,
+      primaryColor: company.primaryColor,
+      secondaryColor: company.secondaryColor,
+      phone: company.phone,
+      email: company.email,
+      website: company.website,
+      address: company.address,
+      travelNotes: company.travelNotes,
+    };
+
+    // Check for round trip partner via linkedTicketId
+    let partnerTicket: typeof ticket | null = null;
+    if (ticket.linkedTicketId) {
+      const rows = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticket.linkedTicketId)).limit(1);
+      partnerTicket = rows[0] || null;
+    } else {
+      const rows = await db.select().from(ticketsTable)
+        .where(and(
+          eq(ticketsTable.companyId, user.companyId),
+          eq(ticketsTable.linkedTicketId, ticket.id)
+        ))
+        .limit(1);
+      partnerTicket = rows[0] || null;
+    }
+
+    let pdfBuf: Buffer;
+    if (partnerTicket) {
+      const outbound = ticket.isRoundTrip ? partnerTicket : ticket;
+      const returnT = ticket.isRoundTrip ? ticket : partnerTicket;
+
+      const outboundData = {
+        ticketId: outbound.id,
+        passengerName: outbound.passengerName,
+        passengerArabicName: outbound.passengerArabicName,
+        nationality: outbound.nationality,
+        passengerType: outbound.passengerType,
+        dateOfBirth: outbound.dateOfBirth,
+        passportNumber: outbound.passportNumber,
+        seatNumber: outbound.seatNumber,
+        ticketNumber: outbound.ticketNumber,
+        bookingReference: outbound.bookingReference,
+        flightFrom: outbound.flightFrom,
+        flightTo: outbound.flightTo,
+        departureDate: outbound.departureDate,
+        departureTime: outbound.departureTime,
+        arrivalDate: outbound.arrivalDate,
+        arrivalTime: outbound.arrivalTime,
+        airline: outbound.airline,
+        flightNumber: outbound.flightNumber,
+        cabinClass: outbound.cabinClass,
+        baggageAllowance: outbound.baggageAllowance,
+        gate: outbound.gate,
+        transitAirports: outbound.transitAirports,
+        price: outbound.price,
+        currency: outbound.currency,
+        issueDate: outbound.issueDate,
+      };
+
+      const returnData = {
+        ticketId: returnT.id,
+        passengerName: returnT.passengerName,
+        passengerArabicName: returnT.passengerArabicName,
+        nationality: returnT.nationality,
+        passengerType: returnT.passengerType,
+        dateOfBirth: returnT.dateOfBirth,
+        passportNumber: returnT.passportNumber,
+        seatNumber: returnT.seatNumber,
+        ticketNumber: returnT.ticketNumber,
+        bookingReference: returnT.bookingReference,
+        flightFrom: returnT.flightFrom,
+        flightTo: returnT.flightTo,
+        departureDate: returnT.departureDate,
+        departureTime: returnT.departureTime,
+        arrivalDate: returnT.arrivalDate,
+        arrivalTime: returnT.arrivalTime,
+        airline: returnT.airline,
+        flightNumber: returnT.flightNumber,
+        cabinClass: returnT.cabinClass,
+        baggageAllowance: returnT.baggageAllowance,
+        gate: returnT.gate,
+        transitAirports: returnT.transitAirports,
+        price: returnT.price,
+        currency: returnT.currency,
+        issueDate: returnT.issueDate,
+      };
+
+      console.log('[BOOKING DEBUG] before generateTicketPDF (partner):', { bookingReference: outboundData.bookingReference, ticketNumber: outboundData.ticketNumber });
+      pdfBuf = await generateTicketPDF(outboundData, companyData, ticket.hidePrice, returnData);
+
+      const bucket = process.env.SUPABASE_BUCKET || "tickets";
+      const url = await uploadFile(
+        bucket,
+        `generated/${user.companyId}/${randomUUID()}.pdf`,
+        pdfBuf,
+        "application/pdf"
+      );
+
+      await db.update(ticketsTable)
+        .set({ generatedFileUrl: url, status: "GENERATED", updatedAt: new Date() })
+        .where(eq(ticketsTable.id, outbound.id));
+      await db.update(ticketsTable)
+        .set({ generatedFileUrl: url, status: "GENERATED", updatedAt: new Date() })
+        .where(eq(ticketsTable.id, returnT.id));
+
+      const [updated] = await db.update(ticketsTable)
+        .set({ generatedFileUrl: url, updatedAt: new Date() })
+        .where(eq(ticketsTable.id, id))
+        .returning();
+
+      res.json({ success: true, ticket: { ...updated, userName: null } });
+      return;
+    }
+
+    console.log('[BOOKING DEBUG] before generateTicketPDF (single):', { bookingReference: ticket.bookingReference, ticketNumber: ticket.ticketNumber });
+    pdfBuf = await generateTicketPDF(
       {
         ticketId: ticket.id,
         passengerName: ticket.passengerName,
@@ -408,21 +592,12 @@ router.post("/:id/generate", requireAuth, async (req: AuthRequest, res) => {
         cabinClass: ticket.cabinClass,
         baggageAllowance: ticket.baggageAllowance,
         gate: ticket.gate,
+        transitAirports: ticket.transitAirports,
         price: ticket.price,
         currency: ticket.currency,
         issueDate: ticket.issueDate,
       },
-      {
-        name: company.name,
-        logoUrl: company.logoUrl,
-        primaryColor: company.primaryColor,
-        secondaryColor: company.secondaryColor,
-        phone: company.phone,
-        email: company.email,
-        website: company.website,
-        address: company.address,
-        travelNotes: company.travelNotes,
-      },
+      companyData,
       ticket.hidePrice
     );
 

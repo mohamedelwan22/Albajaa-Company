@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Splash from "@/pages/splash";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import Tickets from "@/pages/tickets";
 import NewTicket from "@/pages/new-ticket";
 import TicketDetail from "@/pages/ticket-detail";
 import Settings from "@/pages/settings";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/" component={Splash} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dashboard/tickets" component={Tickets} />
       <Route path="/dashboard/tickets/new" component={NewTicket} />
       <Route path="/dashboard/tickets/:id" component={TicketDetail} />
       <Route path="/settings" component={Settings} />

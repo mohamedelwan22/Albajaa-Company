@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Plane, Plus, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Plane, Plus, Settings, LogOut, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
@@ -22,9 +22,8 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
     },
     {
       label: "التذاكر",
-      href: "/dashboard", // Since dashboard holds the tickets table
-      icon: Plane,
-      // If we are on ticket detail page, we might want to highlight Tickets as well
+      href: "/dashboard/tickets",
+      icon: Ticket,
       matchPrefix: "/dashboard/tickets",
     },
     {
@@ -40,45 +39,41 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
   ];
 
   return (
-    <div 
-      className="hidden md:flex flex-col h-screen w-[260px] text-white shrink-0 border-l border-white/10"
-      style={{ background: "linear-gradient(180deg, #0077B6 0%, #00AEEF 100%)" }}
-    >
+    <div className="hidden md:flex fixed top-0 right-0 w-[260px] h-screen flex-col bg-sidebar text-sidebar-foreground z-30 border-l border-sidebar-border">
       {/* Header */}
-      <div className="flex flex-col items-center justify-center py-8 border-b border-white/10 gap-3">
+      <div className="flex flex-col items-center justify-center py-8 border-b border-sidebar-border gap-3 shrink-0">
         <Link href="/dashboard" className="cursor-pointer">
           <img 
             src="/logo.png" 
             alt="شعار البجع" 
-            className="w-[140px] object-contain drop-shadow-md"
+            className="w-[140px] object-contain brightness-0 invert"
             onError={(e) => {
-              // Fallback if logo.png doesn't exist
               e.currentTarget.style.display = "none";
             }}
           />
         </Link>
-        <span className="text-xl font-bold tracking-wide text-white drop-shadow">البجع للسفر والسياحة</span>
+        <span className="text-lg font-bold tracking-wide text-white/90">البجع للسفر والسياحة</span>
       </div>
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto py-6 px-4">
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           {menuItems.map((item) => {
             const isExactActive = location === item.href;
-            const isPrefixActive = item.matchPrefix && location.startsWith(item.matchPrefix) && location !== "/dashboard/tickets/new";
+            const isPrefixActive = item.matchPrefix && location.startsWith(item.matchPrefix);
             const isActive = isExactActive || isPrefixActive;
             const Icon = item.icon;
 
             return (
               <Link key={item.label} href={item.href}>
                 <div
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? "bg-[rgba(247,147,30,0.20)] border-r-[4px] border-[#F7931E] text-[#F7931E] shadow-sm font-bold scale-[1.02]"
-                      : "text-white/90 hover:bg-white/10 hover:text-white"
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground border-r-2 border-sidebar-primary"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? "text-[#F7931E]" : "text-white/80"}`} />
+                  <Icon className={`h-5 w-5 shrink-0 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50"}`} />
                   <span>{item.label}</span>
                 </div>
               </Link>
@@ -88,24 +83,19 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/10 bg-black/10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold border border-white/10 shadow-sm shrink-0">
+      <div className="p-4 border-t border-sidebar-border shrink-0">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-9 w-9 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary font-bold text-sm shrink-0">
             {user.name?.charAt(0) || "B"}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold truncate text-white">{user.name}</span>
-            <span className="text-xs text-white/70 truncate">{user.email}</span>
-            <div className="mt-1">
-              <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-[#F7931E] text-white font-bold">
-                {user.role === "SUPER_ADMIN" ? "مدير عام" : user.role === "ADMIN" ? "مدير" : "موظف"}
-              </span>
-            </div>
+            <span className="text-sm font-semibold truncate text-sidebar-foreground/90">{user.name}</span>
+            <span className="text-xs text-sidebar-foreground/50 truncate">{user.email}</span>
           </div>
         </div>
         <Button 
           variant="ghost" 
-          className="w-full justify-start gap-2 text-white hover:bg-white/10 hover:text-white font-medium border border-white/20 bg-white/5" 
+          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent h-9 text-sm" 
           onClick={onLogout}
         >
           <LogOut className="h-4 w-4" />

@@ -4,12 +4,13 @@
 // هدف: استخراج بيانات تذكرة الطيران من أي شركة بأي شكل
 // ============================================================
 
+process.env.PYTHONIOENCODING = 'utf-8';
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFParse } from "pdf-parse";
 import Groq from "groq-sdk";
-import { pdf } from "pdf-to-img";
 
 let groq: Groq | null = null;
 
@@ -49,6 +50,17 @@ interface ExtractedTicket {
   airline: string;
   ticketType: TicketType;
   rawConfidence: number;
+  transitAirports: string | null;
+  isRoundTrip: boolean;
+  returnFlightFrom: string | null;
+  returnFlightTo: string | null;
+  returnDepartureDate: string | null;
+  returnDepartureTime: string | null;
+  returnArrivalDate: string | null;
+  returnArrivalTime: string | null;
+  returnAirline: string | null;
+  returnFlightNumber: string | null;
+  returnTransitAirports: string | null;
 }
 
 interface Flight {
@@ -135,7 +147,7 @@ function cleanTextForType(text: string, type: TicketType): string {
         .replace(/Carry-On[\s\S]*?Baggage Allowance/g, "Baggage:")
         .replace(/\|[\s\w]+\|/g, " ")
         .replace(/□/g, "")
-        .replace(/|||/g, " ");
+        .replace(/|||/g, " ");
       break;
 
     case "trip_com":
@@ -190,173 +202,90 @@ export async function extractTextFromPDF(filePath: string): Promise<{ text: stri
 }
 
 // ============================================================
-// المرحلة 4: بناء Prompt مخصص حسب نوع التذكرة
+// المرحلة 4: بناء Prompt لاستخراج التذكرة
 // ============================================================
-function buildPrompt(text: string, type: TicketType): string {
-  const baseInstructions = `
-أنت خبير في استخراج بيانات تذاكر الطيران. استخرج البيانات التالية من النص وأرجع JSON فقط.
-لو في رحلات متعددة (ذهاب وإياب أو ترانزيت)، ضعهم كلهم في مصفوفة flights.
-`;
+function buildPrompt(text: string, _type: TicketType): string {
+  return `You are a flight ticket data extraction expert.
+Extract data from the following airline ticket text and return ONLY a JSON object.
 
-  const typeSpecificInstructions: Record<TicketType, string> = {
-    emirates: `
-تعليمات خاصة بـ Emirates:
-- Passenger Name: ابحث عن "MR" أو "MRS" أو "MS" متبوعاً بالاسم
-- Record Locator: كود 6 حروف (مثال: O6DBGT)
-- Flight #: رقم الرحلة (مثال: 359, 2072)
-- From/To: مطارات (مثال: Jakarta, Dubai, Baghdad)
-- Date & Time: التاريخ والوقت (مثال: MON 20APR 00:25)
-- Class: حرف واحد (M, Y, C, F)
-- Baggage: "30KG" أو "1PC" أو "2PC"
-`,
+EXTRACTION RULES (follow strictly):
 
-    fly_cham: `
-تعليمات خاصة بـ Fly Cham:
-- Passenger Name: بعد "Passenger Name(s)" أو في جدول المسافرين
-- PNR: كود 6 حروف (مثال: CZ9VGE)
-- E Ticket Number: رقم طويل (مثال: 3862304862177)
-- Flight: رقم الرحلة (مثال: XH502)
-- Origin/Destination: BGW/DAM أو DAM/BGW
-- Departure/Arrival: التاريخ والوقت
-- Class of Service: Economy Class أو Business Class
-- Baggage: "30 Kgs" أو "40 Kgs"
-`,
+1. SEGMENT SELECTION:
+   - Find ALL flight segments in the ticket, listed in order
+   - Extract flightFrom = IATA code of the FIRST segment's departure airport
+   - Extract flightTo = IATA code of the LAST segment's arrival airport
+   - Extract departureDate and departureTime from the FIRST segment
+   - Extract arrivalDate and arrivalTime from the LAST segment
+   - For connecting flights (e.g. DXB→CGK→DPS): flightFrom=DXB, flightTo=DPS (final destination, not transit stop)
+   - Do NOT try to detect outbound vs return based on country or Iraqi airports
 
-    egyptair: `
-تعليمات خاصة بـ EgyptAir:
-- Passenger: بعد "Passenger:"
-- Booking ref: كود 6 حروف (مثال: 8QP5BL)
-- Ticket number: رقم طويل يبدأ بـ 077 (مثال: 0772450553150)
-- Flight: رقم يبدأ بـ MS (مثال: MS628, MS881)
-- From/To: BAGHDAD, CAIRO, ACCRA
-- Departure/Arrival: التاريخ والوقت
-- Class: حرف (K, Y, C)
-- Baggage: "2PC" أو "30KG"
-`,
+2. ROUND TRIP HANDLING:
+   - A round trip is when the ticket returns to the same origin airport
+   - When this is detected, extract the first half (segments with the EARLIEST departure date) as main fields (flightFrom, flightTo, etc.)
+   - Additionally, extract the return half (segments with the LATER departure date) as return* fields
+   - Set "isRoundTrip": true when round trip detected, false otherwise
+   - Example: CGK→DXB→BGW on 20APR then BGW→DXB→CGK on 25APR → main: CGK→DXB→BGW, return: BGW→DXB→CGK
+   - For one-way tickets: isRoundTrip = false, all return* fields = null
 
-    pegasus: `
-تعليمات خاصة بـ Pegasus:
-- Passenger Name: في الهيدر (مثال: HUSSEIN MALIKI أو BASHEER SHKARA)
-- Booking Ref: كود 6 حروف (مثال: 212ZQC)
-- Ticket Number: رقم طويل (مثال: 6242249607799)
-- Flight Number: يبدأ بـ PC- (مثال: PC-657, PC-1257)
-- From: BGW (Baghdad), SAW (Sabiha Gokcen), AMS (Amsterdam)
-- To: نفس الكودات
-- Date: DD/MM/YYYY (مثال: 26/05/2026)
-- Dep. Time: HH:MM (مثال: 08:50)
-- Arr. Time: HH:MM (مثال: 11:45)
-- Class: Saver أو Comfort Flex
-- Baggage: "20KG" أو "15KG"
-ملاحظة: التذكرة ممكن تكون لأكثر من مسافر — استخرج كل المسافرين
-`,
+3. MULTI-PASSENGER TICKETS:
+   - Extract ONLY the FIRST passenger listed
+   - Use their name and ticket number only
 
-    turkish_airlines: `
-تعليمات خاصة بـ Turkish Airlines:
-- Passenger Name: بعد "Yolcu ismi /Passenger Name" (مثال: ALOMAR HUDA MRS)
-- Ticket Number: بعد "Bilet No /Ticket Number" (مثال: 2352275616976)
-- Booking Ref: بعد "Rezervasyon No /Booking Ref" (مثال: UL45A3)
-- Flight: يبدأ بـ TK (مثال: TK 0799, TK 0201)
-- From/To: BSR (Basra), IST (Istanbul), DEN (Denver), DTW (Detroit)
-- Dep. Time: HH:MM
-- Arr. Time: HH:MM
-- Day-Mon: DD-MM (مثال: 25-09)
-- Class: حرف (U, W, C, Y)
-- Baggage: "2P" (2 pieces) أو بالكيلو
-`,
+4. FIELD FORMATS:
+   - flightFrom: exactly 3 uppercase letters (IATA code)
+   - flightTo: exactly 3 uppercase letters (IATA code)
+   - departureDate: YYYY-MM-DD format
+   - departureTime: HH:MM 24-hour format
+   - arrivalDate: YYYY-MM-DD format
+   - arrivalTime: HH:MM 24-hour format
+   - baggageAllowance: number + KG only, e.g. "30 KG"
+   - cabinClass: "Economy" or "Business"
+   - ticketNumber: digits only, remove slashes, take part before "/" if present
+   - bookingReference: 5-6 alphanumeric PNR code — look for labels like "Reservation Code", "Confirmation Number", "PNR", "Booking Ref", "Record Locator"
+   - transitAirports: comma-separated IATA codes of ALL intermediate airports (not origin, not final destination). For CGK→DXB→BGW: transitAirports = "DXB". For BGW→AMM→CMN: transitAirports = "AMM". For direct flights: transitAirports = null
 
-    airarabia: `
-تعليمات خاصة بـ AirArabia:
-- Passenger: بعد "Mr" أو "Mrs" (مثال: Mr Ali Alkhafaji)
-- E-ticket number: رقم طويل (مثال: 5142382775723)
-- Reservation Number: كود 6 حروف (مثال: 6XKHXI)
-- Sectors: NJF/SHJ, SHJ/HKT, HKT/SHJ, SHJ/BGW
-- Checked Baggage: "20 Kg 1 Piece Free"
-- Meals: نوع الوجبة
-- Seat: رقم المقعد
-`,
+5. AIRLINE NAME:
+   - Always use the MARKETING carrier name (the main airline printed on the ticket)
+   - Do NOT use the operating carrier (ignore "Operated by" or "Operated By" text)
+   - flightNumber: use the flight number from the FIRST segment
 
-    royal_jordanian: `
-تعليمات خاصة بـ Royal Jordanian (ViewTrip):
-- Passengers: قائمة أسماء (مثال: ALOBAIDI, ALI)
-- eTicket Number: رقم طويل (مثال: 5122300785487)
-- Confirmation Number: كود 6 حروف (مثال: 9UO67C)
-- Flight: يبدأ بـ RJ (مثال: RJ 815, RJ 555)
-- From/To: BGW (Baghdad), AMM (Amman), CMN (Casablanca)
-- Depart/Arrive: التاريخ والوقت
-- Class Of Service: Economy أو Business
-- Baggage: "1 Piece Plan" + الوزن
-`,
+Return ONLY this JSON structure, no explanation, no markdown:
+{
+  "passengerName": "full name in UPPERCASE",
+  "ticketNumber": "digits only",
+  "bookingReference": "PNR code",
+  "flightFrom": "XXX",
+  "flightTo": "XXX",
+  "departureDate": "YYYY-MM-DD",
+  "departureTime": "HH:MM",
+  "arrivalDate": "YYYY-MM-DD",
+  "arrivalTime": "HH:MM",
+  "airline": "Airline Name",
+  "flightNumber": "XX000",
+  "cabinClass": "Economy",
+  "baggageAllowance": "30 KG",
+  "gate": null,
+  "price": null,
+  "currency": "USD",
+  "issueDate": "YYYY-MM-DD",
+  "transitAirports": null,
+  "isRoundTrip": false,
+  "returnFlightFrom": null,
+  "returnFlightTo": null,
+  "returnDepartureDate": null,
+  "returnDepartureTime": null,
+  "returnArrivalDate": null,
+  "returnArrivalTime": null,
+  "returnAirline": null,
+  "returnFlightNumber": null,
+  "returnTransitAirports": null
+}
+If any field is unknown, use null. Never invent data.
 
-    ur_airlines: `
-تعليمات خاصة بـ UR Airlines:
-- Booking Reference: كود 6 حروف (مثال: TYSOLI)
-- Passenger Name: بعد "Mr." (مثال: Mr.ALLAMI, ABDULLAH)
-- E-Ticket: رقم طويل (مثال: 5410010602741)
-- Flight No: يبدأ بـ UD (مثال: UD105, UD106)
-- From/To: BGW (Baghdad), BEY (Beirut)
-- Date: Tue, May 12, 2026
-- Time: HH:MM (مثال: 18:00 - 19:30)
-- Class: Economy/Q
-- Baggage: "25Kg" cargo + "7Kg" hand
-`,
-
-    trip_com: `
-تعليمات خاصة بـ Trip.com:
-- النص مشوش جداً — ابحث عن:
-- Booking Reference: كود 6 حروف
-- Passenger names: أسماء المسافرين
-- Flight details: أرقام الرحلات والمطارات
-- Baggage: "1 piece(s) per person, 30kg"
-`,
-
-    generic: `
-تعليمات عامة:
-- ابحث عن أي بيانات متعلقة بتذاكر الطيران
-- Passenger name, ticket number, booking reference, flights, dates, times
-- أي شركة طيران، أي مطار، أي رحلة
-`,
-  };
-
-  return `${baseInstructions}
-${typeSpecificInstructions[type]}
-
-النص المستخرج من التذكرة:
+TICKET TEXT:
 """
 ${text.substring(0, 15000)}
 """
-
-أرجع JSON بهذا الشكل بالضبط:
-{
-  "passengerName": "الاسم الكامل",
-  "ticketNumber": "رقم التذكرة",
-  "bookingRef": "رقم الحجز",
-  "issueDate": "تاريخ الإصدار",
-  "airline": "اسم شركة الطيران",
-  "flights": [
-    {
-      "from": "مطار المغادرة",
-      "to": "مطار الوصول",
-      "departureDate": "YYYY-MM-DD",
-      "departureTime": "HH:MM",
-      "arrivalDate": "YYYY-MM-DD",
-      "arrivalTime": "HH:MM",
-      "airline": "شركة الطيران",
-      "flightNumber": "رقم الرحلة",
-      "class": "درجة السفر",
-      "baggageAllowance": "وزن الأمتعة",
-      "gate": null
-    }
-  ],
-  "price": null,
-  "currency": null
-}
-
-قواعد مهمة:
-- التاريخ: YYYY-MM-DD (مثال: 2026-04-20)
-- الوقت: HH:MM 24-hour format
-- لو في أكتر من مسافر، استخرج أسمائهم كلهم مفصولين بفاصلة
-- لو في أكتر من رحلة (ذهاب/إياب/ترانزيت)، ضعهم كلهم في flights
-- JSON فقط بدون أي كلام قبله أو بعده
 `;
 }
 
@@ -367,7 +296,7 @@ async function callGroq(prompt: string): Promise<string> {
   const models = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
   ];
 
   for (const model of models) {
@@ -391,22 +320,70 @@ async function callGroq(prompt: string): Promise<string> {
     }
   }
 
+  // OpenRouter fallback — try multiple models
+  console.log("[Groq] All models rate-limited, falling back to OpenRouter...");
+  const openRouterModels = [
+    "google/gemini-2.0-flash-001",
+    "google/gemini-flash-1.5",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen-2.5-7b-instruct:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
+  ];
+  for (const orModel of openRouterModels) {
+    try {
+      console.log(`[OpenRouter] Trying model: ${orModel}`);
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: orModel,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      console.log(`[OpenRouter] ${orModel} status:`, res.status);
+      const text = await res.text();
+      if (res.status === 404 || res.status === 400) {
+        console.log(`[OpenRouter] ${orModel} not available, trying next...`);
+        continue;
+      }
+      const data = JSON.parse(text);
+      const content = data.choices?.[0]?.message?.content ?? "";
+      if (content.trim().length > 50) {
+        console.log(`[OpenRouter] Success with model: ${orModel}`);
+        return content;
+      }
+    } catch (e) {
+      console.warn(`[OpenRouter] ${orModel} failed:`, e);
+      continue;
+    }
+  }
   throw new Error("كل الموديلات فشلت");
 }
 
 function parseJsonResponse(aiResponse: string): Record<string, unknown> {
-  const cleaned = aiResponse
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
+  let cleaned = aiResponse.trim();
 
-  try {
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]) as Record<string, unknown>;
-    throw new Error("الـ AI لم يرجع JSON صحيح");
+  // Remove markdown code blocks
+  cleaned = cleaned.replace(/^```json\s*/i, '');
+  cleaned = cleaned.replace(/^```\s*/i, '');
+  cleaned = cleaned.replace(/\s*```$/i, '');
+  cleaned = cleaned.trim();
+
+  // Find JSON object boundaries
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    cleaned = cleaned.substring(start, end + 1);
   }
+
+  // ✅ Remove trailing commas before } or ] (invalid JSON)
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+
+  return JSON.parse(cleaned);
 }
 
 function valueToString(value: unknown): string {
@@ -437,51 +414,99 @@ async function extractTicketDataOCR(filePath: string): Promise<Record<string, un
     throw new Error("OPENROUTER_API_KEY is not defined in the environment variables");
   }
 
-  console.log(`[OCR] Converting PDF: ${filePath} to image buffer...`);
-  const document = await pdf(filePath, { scale: 2 });
-  const firstPageBuffer = await document.getPage(1);
-  const base64Image = firstPageBuffer.toString("base64");
+  console.log(`[OCR] Converting PDF: ${filePath} to image using pdfjs-dist...`);
+  const pdfBuffer = fs.readFileSync(filePath);
+  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+  const pdfData = new Uint8Array(pdfBuffer.buffer, pdfBuffer.byteOffset, pdfBuffer.byteLength);
+
+  const loadingTask = pdfjsLib.getDocument({
+    data: pdfData
+  });
+  const pdfDoc = await loadingTask.promise;
+  const page = await pdfDoc.getPage(1);
+  const viewport = page.getViewport({ scale: 2.0 });
+  const { createCanvas } = await import('canvas');
+  const canvas = createCanvas(viewport.width, viewport.height);
+  const context = canvas.getContext('2d');
+  await page.render({ canvasContext: context as any, viewport }).promise;
+  const base64Image = canvas.toDataURL('image/png').split(',')[1];
   console.log(`[OCR] Image converted successfully. Base64 length: ${base64Image.length}`);
 
-  const promptText = `
-أنت نظام استخراج بيانات متخصص في تذاكر الطيران.
-اقرأ صورة تذكرة الطيران المرفقة واستخرج جميع البيانات وأرجعها كـ JSON فقط.
-لا تكتب أي نصوص أو شروحات إضافية قبل أو بعد الـ JSON.
-لا تستخدم backticks أو markdown.
+  const visionPrompt = `You are a flight ticket data extraction expert.
+Extract data from the airline ticket image and return ONLY a JSON object.
 
-أرجع JSON بهذا الشكل بالضبط:
+EXTRACTION RULES (follow strictly):
+
+1. SEGMENT SELECTION:
+   - Find ALL flight segments visible in the ticket image, listed in order
+   - Extract flightFrom = IATA code of the FIRST segment's departure airport
+   - Extract flightTo = IATA code of the LAST segment's arrival airport
+   - Extract departureDate and departureTime from the FIRST segment
+   - Extract arrivalDate and arrivalTime from the LAST segment
+   - For connecting flights (e.g. DXB→CGK→DPS): flightFrom=DXB, flightTo=DPS (final destination, not transit stop)
+   - Do NOT try to detect outbound vs return based on country or Iraqi airports
+
+2. ROUND TRIP HANDLING:
+   - A round trip is when the ticket returns to the same origin airport
+   - When this is detected, extract the first half (segments with the EARLIEST departure date) as main fields
+   - Additionally, extract the return half as return* fields
+   - Set "isRoundTrip": true when round trip detected, false otherwise
+   - For one-way tickets: isRoundTrip = false, all return* fields = null
+
+3. MULTI-PASSENGER TICKETS:
+   - Extract ONLY the FIRST passenger listed
+
+4. FIELD FORMATS:
+   - flightFrom/flightTo: exactly 3 uppercase letters (IATA code)
+   - departureDate/arrivalDate: YYYY-MM-DD
+   - departureTime/arrivalTime: HH:MM 24-hour
+   - baggageAllowance: number + KG only
+   - cabinClass: "Economy" or "Business"
+   - ticketNumber: digits only
+   - transitAirports: comma-separated IATA codes of intermediate airports, null for direct
+
+5. AIRLINE NAME:
+   - Always use the MARKETING carrier name
+   - flightNumber: from the FIRST segment
+
+Return ONLY this JSON structure, no explanation, no markdown:
 {
-  "passengerName": "الاسم الكامل للمسافر",
-  "ticketNumber": "رقم التذكرة",
-  "bookingRef": "رقم الحجز PNR",
-  "issueDate": "تاريخ الإصدار",
-  "flights": [
-    {
-      "from": "كود المطار أو المدينة (مثال: DXB)",
-      "to": "كود المطار أو المدينة (مثال: CAI)",
-      "departureDate": "تاريخ المغادرة YYYY-MM-DD",
-      "departureTime": "وقت المغادرة HH:MM",
-      "arrivalDate": "تاريخ الوصول YYYY-MM-DD",
-      "arrivalTime": "وقت الوصول HH:MM",
-      "airline": "اسم شركة الطيران",
-      "flightNumber": "رقم الرحلة",
-      "class": "الدرجة (مثال: Economy)",
-      "baggageAllowance": "وزن الأمتعة المسموح (مثال: 30KG)",
-      "gate": "البوابة أو null"
-    }
-  ],
-  "price": 150.00,
-  "currency": "USD"
+  "passengerName": "full name in UPPERCASE",
+  "ticketNumber": "digits only",
+  "bookingReference": "PNR code",
+  "flightFrom": "XXX",
+  "flightTo": "XXX",
+  "departureDate": "YYYY-MM-DD",
+  "departureTime": "HH:MM",
+  "arrivalDate": "YYYY-MM-DD",
+  "arrivalTime": "HH:MM",
+  "airline": "Airline Name",
+  "flightNumber": "XX000",
+  "cabinClass": "Economy",
+  "baggageAllowance": "30 KG",
+  "gate": null,
+  "price": null,
+  "currency": "USD",
+  "issueDate": "YYYY-MM-DD",
+  "transitAirports": null,
+  "isRoundTrip": false,
+  "returnFlightFrom": null,
+  "returnFlightTo": null,
+  "returnDepartureDate": null,
+  "returnDepartureTime": null,
+  "returnArrivalDate": null,
+  "returnArrivalTime": null,
+  "returnAirline": null,
+  "returnFlightNumber": null,
+  "returnTransitAirports": null
 }
-
-إذا لم تكن الصورة تذكرة طيران، أرجع JSON يحتوي على خطأ: {"error": "not_a_ticket"}
-إذا كان الحقل غير موجود في التذكرة، استخدم null أو string فارغ.
-`;
+If any field is unknown, use null. Never invent data.`;
 
   const models = [
-    "google/gemini-2.5-flash:free",
+    "google/gemini-2.0-flash-001",
+    "google/gemini-flash-1.5",
     "openrouter/free",
-    "google/gemini-2.5-flash"
   ];
 
   let response: Response | null = null;
@@ -513,7 +538,7 @@ async function extractTicketDataOCR(filePath: string): Promise<Record<string, un
                 },
                 {
                   type: "text",
-                  text: promptText,
+                  text: visionPrompt,
                 },
               ],
             },
@@ -545,17 +570,20 @@ async function extractTicketDataOCR(filePath: string): Promise<Record<string, un
 
   console.log(`[OCR] Raw response first 200 chars: ${rawText.substring(0, 200)}`);
 
-  const cleaned = rawText
+  let cleanedOCR = rawText
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
 
+  // ✅ Remove trailing commas
+  cleanedOCR = cleanedOCR.replace(/,(\s*[}\]])/g, '$1');
+
   let parsed: any;
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(cleanedOCR);
   } catch (err) {
-    console.error("[OCR] Failed to parse JSON response:", cleaned);
+    console.error("[OCR] Failed to parse JSON response:", cleanedOCR);
     throw new Error("لم يقم الذكاء الاصطناعي بإرجاع JSON صالح");
   }
 
@@ -580,16 +608,35 @@ export async function extractTicketData(filePath: string): Promise<ExtractedTick
     console.log("[OCR] PDF is image-based, starting OCR extraction via OpenRouter...");
     try {
       const parsed = await extractTicketDataOCR(filePath);
-      const flights = valueToObjectArray(parsed.flights);
+      console.log('[AI RAW RESPONSE]', JSON.stringify(parsed, null, 2));
       const airline = valueToString(parsed.airline) || "GENERIC";
+      let flights = valueToObjectArray(parsed.flights);
+      if (flights.length === 0 && parsed.flightFrom) {
+        flights = [{
+          from: valueToString(parsed.flightFrom),
+          to: valueToString(parsed.flightTo),
+          departureDate: valueToString(parsed.departureDate),
+          departureTime: valueToString(parsed.departureTime),
+          arrivalDate: valueToString(parsed.arrivalDate),
+          arrivalTime: valueToString(parsed.arrivalTime),
+          airline,
+          flightNumber: valueToString(parsed.flightNumber),
+          class: valueToString(parsed.cabinClass),
+          baggageAllowance: valueToString(parsed.baggageAllowance),
+          gate: valueToString(parsed.gate) || null,
+        }];
+      }
 
       const result: ExtractedTicket = {
         passengerName: valueToString(parsed.passengerName) || valueToString(parsed.passengers),
         ticketNumber: valueToString(parsed.ticketNumber),
         bookingRef:
           valueToString(parsed.bookingRef) ||
+          valueToString(parsed.bookingReference) ||
           valueToString(parsed.pnr) ||
-          valueToString(parsed.reservationNumber),
+          valueToString(parsed.reservationNumber) ||
+          valueToString(parsed.reservationCode) ||
+          valueToString(parsed.confirmationNumber),
         issueDate: valueToString(parsed.issueDate),
         flights: flights.map((flight) => ({
           from: valueToString(flight.from),
@@ -609,9 +656,21 @@ export async function extractTicketData(filePath: string): Promise<ExtractedTick
         airline,
         ticketType: "generic",
         rawConfidence: 1.0,
+        transitAirports: valueToString(parsed.transitAirports) || null,
+        isRoundTrip: parsed.isRoundTrip === true,
+        returnFlightFrom: valueToString(parsed.returnFlightFrom) || null,
+        returnFlightTo: valueToString(parsed.returnFlightTo) || null,
+        returnDepartureDate: valueToString(parsed.returnDepartureDate) || null,
+        returnDepartureTime: valueToString(parsed.returnDepartureTime) || null,
+        returnArrivalDate: valueToString(parsed.returnArrivalDate) || null,
+        returnArrivalTime: valueToString(parsed.returnArrivalTime) || null,
+        returnAirline: valueToString(parsed.returnAirline) || null,
+        returnFlightNumber: valueToString(parsed.returnFlightNumber) || null,
+        returnTransitAirports: valueToString(parsed.returnTransitAirports) || null,
       };
 
       console.log(`[OCR Result] استخراج ناجح — ${result.flights.length} رحلة`);
+      console.log('[BOOKING DEBUG] after OCR AI extraction:', { bookingRef: result.bookingRef, ticketNumber: result.ticketNumber });
       return result;
     } catch (ocrError: any) {
       console.error("[OCR] Failed extraction:", ocrError);
@@ -630,14 +689,31 @@ export async function extractTicketData(filePath: string): Promise<ExtractedTick
 
   const aiResponse = await callGroq(prompt);
   const parsed = parseJsonResponse(aiResponse);
-  const flights = valueToObjectArray(parsed.flights);
+  console.log('[AI RAW RESPONSE]', JSON.stringify(parsed, null, 2));
   const airline = valueToString(parsed.airline) || type.replace("_", " ").toUpperCase();
+  let flights = valueToObjectArray(parsed.flights);
+  if (flights.length === 0 && parsed.flightFrom) {
+    flights = [{
+      from: valueToString(parsed.flightFrom),
+      to: valueToString(parsed.flightTo),
+      departureDate: valueToString(parsed.departureDate),
+      departureTime: valueToString(parsed.departureTime),
+      arrivalDate: valueToString(parsed.arrivalDate),
+      arrivalTime: valueToString(parsed.arrivalTime),
+      airline,
+      flightNumber: valueToString(parsed.flightNumber),
+      class: valueToString(parsed.cabinClass),
+      baggageAllowance: valueToString(parsed.baggageAllowance),
+      gate: valueToString(parsed.gate) || null,
+    }];
+  }
 
   const result: ExtractedTicket = {
     passengerName: valueToString(parsed.passengerName) || valueToString(parsed.passengers),
     ticketNumber: valueToString(parsed.ticketNumber),
     bookingRef:
       valueToString(parsed.bookingRef) ||
+      valueToString(parsed.bookingReference) ||
       valueToString(parsed.pnr) ||
       valueToString(parsed.reservationNumber),
     issueDate: valueToString(parsed.issueDate),
@@ -659,8 +735,20 @@ export async function extractTicketData(filePath: string): Promise<ExtractedTick
     airline,
     ticketType: type,
     rawConfidence: confidence,
+    transitAirports: valueToString(parsed.transitAirports) || null,
+    isRoundTrip: parsed.isRoundTrip === true,
+    returnFlightFrom: valueToString(parsed.returnFlightFrom) || null,
+    returnFlightTo: valueToString(parsed.returnFlightTo) || null,
+    returnDepartureDate: valueToString(parsed.returnDepartureDate) || null,
+    returnDepartureTime: valueToString(parsed.returnDepartureTime) || null,
+    returnArrivalDate: valueToString(parsed.returnArrivalDate) || null,
+    returnArrivalTime: valueToString(parsed.returnArrivalTime) || null,
+    returnAirline: valueToString(parsed.returnAirline) || null,
+    returnFlightNumber: valueToString(parsed.returnFlightNumber) || null,
+    returnTransitAirports: valueToString(parsed.returnTransitAirports) || null,
   };
 
+  console.log('[BOOKING DEBUG] after AI extraction:', { bookingRef: result.bookingRef, ticketNumber: result.ticketNumber });
   console.log(`[Result] استخراج ناجح — ${result.flights.length} رحلة`);
   return result;
 }
