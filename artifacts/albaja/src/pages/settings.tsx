@@ -111,7 +111,8 @@ export default function Settings() {
     <DashboardLayout>
       <div className="max-w-4xl space-y-6">
         {/* Header */}
-        <div>
+        <div className="flex items-center gap-3">
+          <img src="/ticket-logo.png" alt="ALBAJA" className="h-10 w-auto object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} />
           <h1 className="text-2xl font-bold text-foreground">إعدادات الشركة</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             إعدادات الهوية البصرية ومعلومات الشركة
@@ -131,7 +132,7 @@ export default function Settings() {
               <CardContent className="p-5 space-y-5">
                 {/* Logo Upload */}
                 <div className="flex flex-col items-center justify-center pb-5 border-b border-border">
-                  <FormLabel className="mb-3 text-foreground font-bold text-sm">شعار الشركة</FormLabel>
+                  <label className="mb-3 text-foreground font-bold text-sm">شعار الشركة</label>
                   <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <div className="w-[120px] h-[120px] rounded-xl border-2 border-dashed border-border hover:border-accent bg-muted overflow-hidden flex items-center justify-center transition-all">
                       {form.watch("logoUrl") ? (

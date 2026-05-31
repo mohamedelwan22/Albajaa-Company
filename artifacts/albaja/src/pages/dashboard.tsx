@@ -9,7 +9,7 @@ import {
   FileText, Clock, CheckCircle2, Edit, Plus, ArrowLeft, Plane,
   TrendingUp, Users, Ticket,
 } from "lucide-react";
-import type { Ticket as TicketType } from "@workspace/api-client-react/generated/api.schemas";
+import type { Ticket as TicketType } from "@workspace/api-client-react";
 
 const statusMap: Record<string, { label: string, color: string }> = {
   PENDING: { label: "معلق", color: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -26,7 +26,8 @@ export default function Dashboard() {
       <div className="flex flex-col gap-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
+          <div className="flex items-center gap-3">
+            <img src="/ticket-logo.png" alt="ALBAJA" className="h-14 w-auto object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             <h1 className="text-2xl font-bold text-foreground">لوحة التحكم</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               نظرة عامة على التذاكر المصدرة والمستخرجة بالذكاء الاصطناعي

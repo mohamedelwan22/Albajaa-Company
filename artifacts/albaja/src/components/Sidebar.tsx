@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Plane, Plus, Settings, LogOut, Ticket } from "lucide-react";
+import { LayoutDashboard, Plus, Settings, LogOut, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
@@ -44,9 +44,9 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       <div className="flex flex-col items-center justify-center py-8 border-b border-sidebar-border gap-3 shrink-0">
         <Link href="/dashboard" className="cursor-pointer">
           <img 
-            src="/logo.png" 
-            alt="شعار البجع" 
-            className="w-[140px] object-contain brightness-0 invert"
+            src="/ticket-logo.png" 
+            alt="ALBAJA Logo" 
+            className="h-16 w-auto object-contain"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
